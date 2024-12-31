@@ -1,0 +1,9 @@
+webbrowser
+os
+streamlit
+pandas
+plotly.express
+warnings
+cx_Oracle
+datetime
+calendar

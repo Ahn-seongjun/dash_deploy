@@ -13,28 +13,19 @@ import cx_Oracle
 from datetime import datetime, timedelta
 import calendar
 
-os.putenv('NLS_LANG', '.UTF8')
-try:
-    cx_Oracle.init_oracle_client(lib_dir=r"C:\oracle\instantclient_21_3")
-except:
-    pass
-connect = cx_Oracle.connect("CARREGISTDB", "pass", "192.168.0.114:1521/CARREGDB")
-cursor = connect.cursor()
 
 st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
-
-df_bar = pd.read_sql("""select extract_de||'01' "date", count(*) CNT from CARCHART_PAID
-                    where isa is null and reborn is null
-                    and car_gb = '승용'
-                    group by extract_de||'01'
-                    order by 1 asc
-                    """, con = connect)
-df_bar['date'] = pd.to_datetime(df_bar['date'])
+df_bar = pd.read_csv('./data/simple_monthly_cnt.csv', index_col=0)
 df = pd.read_csv('./data/2023년 누적 데이터.csv', index_col=0)
 df_use = pd.read_csv('./data/12-23누적 용도별 등록대수.csv')
 
+# 단순 대수 전처리
+df_bar = df_bar.reset_index()
+df_bar['date'] = df_bar['date'].astype('str')
+df_bar['date'] = pd.to_datetime(df_bar['date'])
+
 df['EXTRACT_DE'] = df['EXTRACT_DE'].astype('str')
-reg = format(len(df), ',d')
+reg = format(df['CNT'].sum(), ',d')
 
 start_date = datetime(2012, 1, 1)
 end_date = datetime.now()
@@ -78,9 +69,10 @@ if start_button:
     st.sidebar.success("Filter Applied!")
     #st.balloons()
 else :
-    df2 = df[df["EXTRACT_DE"] == '20231201']
+    df2 = df
+    #df2 = df[df["EXTRACT_DE"] == '20231201']
 
-st.markdown("## 2024.12.03. Monthly Summary")
+st.markdown("## 2025.01.02. Monthly Summary")
 st.markdown(f"#### 2023년 누적 신규등록대수 : {reg}")
 
 #left_column = st.columns(1, gap="large")
@@ -126,28 +118,13 @@ with tab2:
     st.plotly_chart(fig1_1, use_container_width=True)
 #with right_column:
 
-st.header('브랜드 모델별 신규등록대수')
-brand = df['ORG_CAR_MAKER_KOR'].unique().tolist()
-brand.sort()
-name = st.selectbox("브랜드", brand)
 
-date_mon = df['EXTRACT_DE'].unique().tolist()
-date_mon.sort()
-mon = st.selectbox("등록 월", date_mon)
-df1 = df[(df['ORG_CAR_MAKER_KOR'] == name) & (df['EXTRACT_DE'] == mon)]
-csv = df1.to_csv().encode('cp949')
-st.download_button("현재 데이터 다운로드",data = csv, file_name='2023년 데이터.csv')
-fig2 = px.histogram(df1, x="CAR_MOEL_DT", color = 'CAR_MOEL_DT')
-st.plotly_chart(fig2, use_container_width=True)
 
 with midleft_column:
     st.subheader('외형별 신규등록대수')
 
-    # if not select_multi_species:
-    #     df2 = df[df["EXTRACT_DE"] == '20231201']
-    # else:
-    #     df2 = df[df["ORG_CAR_MAKER_KOR"].isin(select_multi_species)]
-    fig3 = px.histogram(df2, x="CAR_BT", color = 'CAR_BT')
+    hist = df2.groupby(['CAR_BT']).sum(['CNT']).reset_index().sort_values(by = 'CNT',ascending = False)
+    fig3 = px.bar(hist, x='CAR_BT', y = 'CNT', color = 'CAR_BT',labels=dict(CAR_BT="외형", CNT="대수"))
     st.plotly_chart(fig3, use_container_width=True)
 
 
@@ -158,35 +135,34 @@ with midright_column:
     #     df3 = df[df["EXTRACT_DE"] == '20231201']
     # else:
     #     df3 = df[df["ORG_CAR_MAKER_KOR"].isin(select_multi_species)]
-    df3 = df2.groupby("FUEL").count()
-    df3.reset_index(inplace=True)
-    fig4 = px.pie(df3, values = "EXTRACT_DE", names = "FUEL", hole=.3)
+    df3 = df2.groupby(['FUEL']).sum('CNT').reset_index()
+    fig4 = px.pie(df3, values = "CNT", names = "FUEL", hole=.3)
     st.plotly_chart(fig4, use_container_width=True)
 
 with botleft_column:
     st.subheader('국산/수입별 신규등록대수')
-    fig5 = px.histogram(df2, x="CL_HMMD_IMP_SE_NM", color = "CL_HMMD_IMP_SE_NM")
+    df_tmp = df2.groupby(['CL_HMMD_IMP_SE_NM']).sum('CNT').reset_index()
+    fig5 = px.bar(df_tmp, x="CL_HMMD_IMP_SE_NM", y= 'CNT', color = "CL_HMMD_IMP_SE_NM",labels=dict(CL_HMMD_IMP_SE_NM="국산/수입", CNT="대수"))
     st.plotly_chart(fig5, use_container_width=True)
 
 with botright_column:
     st.subheader('외형별 연료별 신규등록대수 버블차트')
-    df4 = df2.groupby(["FUEL", "CAR_BT"]).count()
-    df4.reset_index(inplace=True)
-    fig6 = px.scatter(df4, x="CAR_BT", y="FUEL", size="EXTRACT_DE", hover_name="EXTRACT_DE", size_max=60)
+    df4 = df2.groupby(["FUEL", "CAR_BT"]).sum('CNT').reset_index()
+    fig6 = px.scatter(df4, x="CAR_BT", y="FUEL", size="CNT", hover_name="CNT", size_max=60,labels=dict(CAR_BT="외형", FUEL="연료"))
     st.plotly_chart(fig6, use_container_width=True)
 
 #df5 = df[(df['EXTRACT_DE'] == 20231201) & (df['CL_HMMD_IMP_SE_NM'] == '국산')]
-with bot2left:
+#with bot2left:
     # df6 = pd.pivot_table(df5, values='ORG_CAR_MAKER_KOR', index='CAR_MOEL_DT',
     #                columns='CL_HMMD_IMP_SE_NM', aggfunc='count').sort_values(by='국산', ascending=False).head(10)
-    st.subheader('국산 TOP 10')
+    #st.subheader('국산 TOP 10')
     #st.dataframe(df2)
 
 #df7 = df[(df['EXTRACT_DE'] == 20231201) & (df['CL_HMMD_IMP_SE_NM'] == '외산')]
-with bot2right:
+#with bot2right:
     # df8 = pd.pivot_table(df7, values='ORG_CAR_MAKER_KOR', index='CAR_MOEL_DT',
     #                columns='CL_HMMD_IMP_SE_NM', aggfunc='count').sort_values(by='국산', ascending=False).head(10)
-    st.subheader('수입 TOP 10')
+    #st.subheader('수입 TOP 10')
     #st.dataframe(df7)
 
 with bot3le:
@@ -227,6 +203,22 @@ with bot3le:
     ).update_traces(mode='lines+markers', marker_size=10)
 
     st.plotly_chart(bump_fig, use_container_width=True)
+
+with bot3ri:
+    st.header('브랜드 모델별 신규등록대수')
+    brand = df['ORG_CAR_MAKER_KOR'].unique().tolist()
+    brand.sort()
+    name = st.selectbox("브랜드", brand)
+
+    date_mon = df['EXTRACT_DE'].unique().tolist()
+    date_mon.sort()
+    mon = st.selectbox("등록 월", date_mon)
+    df1 = df[(df['ORG_CAR_MAKER_KOR'] == name) & (df['EXTRACT_DE'] == mon)]
+    csv = df1.to_csv().encode('cp949')
+    st.download_button("현재 데이터 다운로드",data = csv, file_name=f'{mon[:-2]} 신규등록데이터.csv')
+    df1 = df1.groupby(["CAR_MOEL_DT"]).sum('CNT').reset_index().sort_values(by='CNT', ascending = False)
+    fig2 = px.bar(df1, x='CAR_MOEL_DT', y = 'CNT', color = 'CAR_MOEL_DT',labels=dict(CAR_MOEL_DT="모델", CNT="대수"))
+    st.plotly_chart(fig2, use_container_width=True)
 
 
 with open('./assets/carcharts.png', "rb") as f:

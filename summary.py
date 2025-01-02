@@ -1,15 +1,9 @@
-import webbrowser
-import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import warnings
 warnings.filterwarnings('ignore')
-from PIL import Image
-from st_clickable_images import clickable_images
 import base64
-from pathlib import Path
-import cx_Oracle
 from datetime import datetime, timedelta
 import calendar
 

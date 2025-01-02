@@ -3,7 +3,6 @@ import pandas as pd
 from folium.plugins import HeatMap
 from streamlit_folium import st_folium
 import folium
-import streamlit.components.v1 as components
 
 
 st.set_page_config(page_title= "New Regist Data", layout="wide", initial_sidebar_state="auto")

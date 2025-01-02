@@ -1,8 +1,7 @@
-import webbrowser
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import os, base64
+import base64
 
 
 # 수입

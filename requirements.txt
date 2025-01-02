@@ -3,5 +3,4 @@ pandas
 plotly
 plotly.express
 folium
-folium.plugins
 streamlit_folium

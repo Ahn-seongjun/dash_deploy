@@ -174,7 +174,7 @@ with bot3le:
     pre_use_df.reset_index(inplace=True)
     pre_use_df.rename(columns={'index': '연도'}, inplace=True)
     csv = pre_use_df.to_csv().encode('cp949')
-    st.download_button("현재 데이터 다운로드", data=csv, file_name='연도별 용도 데이터.csv')
+    #st.download_button("현재 데이터 다운로드", data=csv, file_name='연도별 용도 데이터.csv')
     # 그래프용 전처리
     numeric_df = pre_use_df.set_index('연도')
     rank_df = numeric_df.rank(axis=1, method='min', ascending=True)
@@ -210,7 +210,7 @@ with bot3ri:
     mon = st.selectbox("등록 월", date_mon)
     df1 = df[(df['ORG_CAR_MAKER_KOR'] == name) & (df['EXTRACT_DE'] == mon)]
     csv = df1.to_csv().encode('cp949')
-    st.download_button("현재 데이터 다운로드",data = csv, file_name=f'{mon[:-2]} 신규등록데이터.csv')
+    #st.download_button("현재 데이터 다운로드",data = csv, file_name=f'{mon[:-2]} 신규등록데이터.csv')
     df1 = df1.groupby(["CAR_MOEL_DT"]).sum('CNT').reset_index().sort_values(by='CNT', ascending = False)
     fig2 = px.bar(df1, x='CAR_MOEL_DT', y = 'CNT', color = 'CAR_MOEL_DT',labels=dict(CAR_MOEL_DT="모델", CNT="대수"))
     st.plotly_chart(fig2, use_container_width=True)

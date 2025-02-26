@@ -42,29 +42,30 @@ with st.sidebar:
     start_button = st.sidebar.button(
         "filter apply"  # "버튼에 표시될 내용"
     )
+
+
+    if month_abbr.index(srt_mon) + 1 < 10:
+        srt_de = str(srt_year) + str(0) + str(month_abbr.index(srt_mon) + 1)
+    else:
+        srt_de = str(srt_year) + str(month_abbr.index(srt_mon) + 1)
+
+    if month_abbr.index(end_mon) + 1 < 10:
+        end_de = str(end_year) + str(0) + str(month_abbr.index(end_mon) + 1)
+    else:
+        end_de = str(end_year) + str(month_abbr.index(end_mon) + 1)
+
+    if start_button:
+        #slider input으로 받은 값에 해당하는 값을 기준으로 데이터를 필터링합니다.
+        df2 = df[(df['EXTRACT_DE'] >= str(srt_de+'01')) & (df['EXTRACT_DE'] <= str(end_de+'01')) & (df['ORG_CAR_MAKER_KOR'].isin(select_multi_brand))]
+        #st.table(tmp_df)
+        # 성공문구 + 풍선이 날리는 특수효과
+        st.sidebar.success("Filter Applied!")
+        st.balloons()
+    else :
+        df2 = df
+        #df2 = df[df["EXTRACT_DE"] == '20231201']
     st.write("CARISYOU DATALAB")
-    st.link_button("CarCharts Free","https://carcharts-free.carisyou.net/")
-
-if month_abbr.index(srt_mon) + 1 < 10:
-    srt_de = str(srt_year) + str(0) + str(month_abbr.index(srt_mon) + 1)
-else:
-    srt_de = str(srt_year) + str(month_abbr.index(srt_mon) + 1)
-
-if month_abbr.index(end_mon) + 1 < 10:
-    end_de = str(srt_year) + str(0) + str(month_abbr.index(end_mon) + 1)
-else:
-    end_de = str(srt_year) + str(month_abbr.index(end_mon) + 1)
-
-if start_button:
-    #slider input으로 받은 값에 해당하는 값을 기준으로 데이터를 필터링합니다.
-    df2 = df[(df['EXTRACT_DE'] >= srt_de) & (df['EXTRACT_DE'] <= end_de) & (df['ORG_CAR_MAKER_KOR'].isin(select_multi_brand))]
-    #st.table(tmp_df)
-    # 성공문구 + 풍선이 날리는 특수효과
-    st.sidebar.success("Filter Applied!")
-    #st.balloons()
-else :
-    df2 = df
-    #df2 = df[df["EXTRACT_DE"] == '20231201']
+    st.link_button("CarCharts Free", "https://carcharts-free.carisyou.net/")
 
 st.markdown("## 2025.01.02. Monthly Summary")
 st.markdown(f"#### 2023년 누적 신규등록대수 : {reg}")

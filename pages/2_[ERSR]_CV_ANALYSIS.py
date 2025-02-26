@@ -101,7 +101,8 @@ with tab2:
             boxmean=True  # represent mean
         ))
         st.plotly_chart(fig_trvl_bus, use_container_width=True)
-
+        st.markdown("- 1년 환산 주행거리 40만km 이하를 대상으로 집계함")
+        st.markdown("- 1년 환산 주행거리 산출근거 : 주행거리/사용연수")
 with tab3:
     st.dataframe(df_spe)
 left1, right1 = st.columns([2,2], gap="large")

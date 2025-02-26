@@ -5,7 +5,7 @@ from streamlit_folium import st_folium
 import folium
 import base64
 
-st.set_page_config(page_title= "New Regist Data", layout="wide", initial_sidebar_state="auto")
+st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
 # df = pd.read_csv('../데이터/data/22년신규등록데이터.csv')
 #
 # st.sidebar.write(df)

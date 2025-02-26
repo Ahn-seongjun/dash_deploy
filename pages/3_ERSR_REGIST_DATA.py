@@ -22,7 +22,7 @@ trvl_na = trvl_na.reset_index()
 trvl_na.dropna(axis=1, inplace=True)
 
 
-st.set_page_config(page_title= "[말소분석] 이동평균 그래프", layout="wide", initial_sidebar_state="auto")
+st.set_page_config(page_title= "[카이즈유] 승용말소 이동평균 그래프", layout="wide", initial_sidebar_state="auto")
 
 with st.sidebar:
     st.write("CARISYOU DATALAB")

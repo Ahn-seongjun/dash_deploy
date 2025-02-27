@@ -10,8 +10,8 @@ import calendar
 
 st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
 df_bar = pd.read_csv('./data/simple_monthly_cnt.csv', index_col=0)
-df = pd.read_csv('./data/2023년 누적 데이터.csv', index_col=0)
-df_use = pd.read_csv('./data/12-23누적 용도별 등록대수.csv')
+df = pd.read_csv('./data/2024년 누적 데이터.csv', index_col=0)
+df_use = pd.read_csv('./data/12-24누적 용도별 등록대수.csv')
 
 # 단순 대수 전처리
 df_bar = df_bar.reset_index()
@@ -67,8 +67,8 @@ with st.sidebar:
     st.write("CARISYOU DATALAB")
     st.link_button("CarCharts Free", "https://carcharts-free.carisyou.net/")
 
-st.markdown("## 2025.01.02. Monthly Summary")
-st.markdown(f"#### 2023년 누적 신규등록대수 : {reg}")
+st.markdown("## 2025.02.27. Monthly Summary")
+st.markdown(f"#### 2024년 누적 신규등록대수 : {reg}")
 
 #left_column = st.columns(1, gap="large")
 #right_column = st.columns(1, gap="large")
@@ -170,7 +170,7 @@ with bot3le:
     pre_use_df = sele_use_df.iloc[:, 1:].transpose()
     pre_use_df.rename(columns=pre_use_df.iloc[0], inplace=True)
     pre_use_df = pre_use_df.drop(pre_use_df.index[0])
-    pre_use_df.index = [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023]
+    pre_use_df.index = [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
     pre_use_df.reset_index(inplace=True)
     pre_use_df.rename(columns={'index': '연도'}, inplace=True)
     csv = pre_use_df.to_csv().encode('cp949')

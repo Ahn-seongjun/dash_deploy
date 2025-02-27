@@ -76,6 +76,10 @@ with tab1:
         pivot = pivot.style.apply(draw_color_at_value, color='#00dac4', axis=0)
         st.markdown(f"- Upper Outlier(사용연수 {upper_fence} 이상)")
         st.dataframe(pivot, column_config=col_config2, width= 700)
+    fig_scat_tr = px.scatter(df_tr, x='UY', y='TRVL_DSTNC', color='ORG_CAR_MAKER_KOR', trendline="ols",
+                              title='주행거리 / 사용연수 산점도')
+    st.plotly_chart(fig_scat_tr, use_container_width=True)
+    st.markdown("- 트럭의 내구성 분석에 주행거리는 연관이 없음을 확인 할 수 있음")
 with tab2:
     prpos = ['전체', '자가용', '영업용']
     name = st.selectbox("등록용도", prpos)
@@ -86,7 +90,6 @@ with tab2:
         tmp_bus = df_bus[df_bus['PRPOS_SE_NM'] == name]
     fig_hist_bus = px.histogram(tmp_bus, x='UY', color_discrete_sequence=['#00dac4'])
     st.plotly_chart(fig_hist_bus, use_container_width=True)
-
 
     left3, right3 = st.columns([2, 2], gap="large")
     with left3:
@@ -111,6 +114,14 @@ with tab2:
         st.plotly_chart(fig_trvl_bus, use_container_width=True)
         st.markdown("- 1년 환산 주행거리 40만km 이하를 대상으로 집계함")
         st.markdown("- 1년 환산 주행거리 산출근거 : 주행거리/사용연수")
+    #left4, right4 = st.columns([2, 2], gap="large")
+    tmp_bus2 = tmp_bus[tmp_bus['1YperD'] <= 400000]
+    fig_scat_bus = px.scatter(tmp_bus2, x='1YperD', y='TRVL_DSTNC', color='ORG_CAR_MAKER_KOR', trendline="ols",title='주행거리 / 1년 환산 주행거리(40만km 이하) 산점도')
+    st.plotly_chart(fig_scat_bus, use_container_width=True)
+
+    fig_scat_bus2 = px.scatter(tmp_bus2, x='UY', y='TRVL_DSTNC', color='ORG_CAR_MAKER_KOR', trendline="ols",title='주행거리 / 사용연수 산점도')
+    st.plotly_chart(fig_scat_bus2, use_container_width=True)
+    st.markdown("- 버스의 내구성 분석에 주행거리는 연관이 없음을 확인 할 수 있음")
 with tab3:
     use = df_spe['CAR_USE'].unique().tolist()
     use.insert(0,'전체')

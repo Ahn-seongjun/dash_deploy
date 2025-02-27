@@ -31,6 +31,12 @@ df_tr = ersr_df[ersr_df['CAR_MOEL_DT'] =='트럭']
 df_bus = ersr_df[ersr_df['CAR_MOEL_DT'] =='버스']
 df_spe = ersr_df[ersr_df['CAR_MOEL_DT'] =='특장차']
 
+# 데이터프레임 강조 색 채우기
+def draw_color_at_value(x, color):
+    color = f'background-color:{color}'
+    is_val = x > 0
+    return [color if b else '' for b in is_val]
+
 st.header(" 상용차 분류")
 tab1, tab2, tab3 = st.tabs(['트럭','버스','특장차'])
 with tab1:
@@ -66,6 +72,8 @@ with tab1:
                        "5": "50's",
                        "All": "총계"}
         pivot = tmp.pivot_table('UY', index=['CL_HMMD_IMP_SE_NM', 'ORG_CAR_MAKER_KOR','CAR_MODEL_KOR'], columns = "BIN",aggfunc='count', margins=True)
+        pivot = pivot.fillna("0").astype('int')
+        pivot = pivot.style.apply(draw_color_at_value, color='#00dac4', axis=0)
         st.markdown(f"- Upper Outlier(사용연수 {upper_fence} 이상)")
         st.dataframe(pivot, column_config=col_config2, width= 700)
 with tab2:
@@ -104,7 +112,22 @@ with tab2:
         st.markdown("- 1년 환산 주행거리 40만km 이하를 대상으로 집계함")
         st.markdown("- 1년 환산 주행거리 산출근거 : 주행거리/사용연수")
 with tab3:
-    st.dataframe(df_spe)
+    use = df_spe['CAR_USE'].unique().tolist()
+    use.insert(0,'전체')
+    name = st.selectbox("용도", use)
+    if name == '전체':
+        tmp_spe = df_spe.copy()
+    else:
+        tmp_spe = df_spe[df_spe['CAR_USE'] == name]
+    fig_hist_spe = px.histogram(tmp_spe, x='UY', color_discrete_sequence=['#00dac4'])
+    st.plotly_chart(fig_hist_spe, use_container_width=True)
+    #spe_pivo = pd.pivot_table(tmp_spe, index=['CL_HMMD_IMP_SE_NM','ORG_CAR_MAKER_KOR','CAR_USE_DETAL'],values='UY',aggfunc='count').sort_values(by='UY',ascending = False)
+    spe_pivo = pd.pivot_table(tmp_spe, index=['ORG_CAR_MAKER_KOR'],columns='UY',aggfunc='count')['CAR_MOEL_DT']
+    col_config3 = {"ORG_CAR_MAKER_KOR": "브랜드"
+                   }
+    spe_pivo = spe_pivo.fillna("0").astype('int')
+    spe_pivo = spe_pivo.style.apply(draw_color_at_value, color='#00dac4', axis=0)
+    st.dataframe(spe_pivo, column_config=col_config3, width= 1400)
 left1, right1 = st.columns([2,2], gap="large")
 
 

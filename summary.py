@@ -21,19 +21,19 @@ df_bar['date'] = pd.to_datetime(df_bar['date'])
 df['EXTRACT_DE'] = df['EXTRACT_DE'].astype('str')
 reg = format(df['CNT'].sum(), ',d')
 
-start_date = datetime(2012, 1, 1)
-end_date = datetime.now()
+# start_date = datetime(2012, 1, 1)
+# end_date = datetime.now()
+# date_lst = list(range(2012,datetime.now().year+1,1))
 
-
+#tmp = range(2012,datetime.now().year+1,1).tolist()
 # 사이드바 메뉴 설정
 with st.sidebar:
-    with st.sidebar.expander('Extract Date'):
-        srt_year = st.selectbox("언제부터", list(range(2012,datetime.now().year+1,1)))
-        month_abbr = calendar.month_abbr[1:]
-        srt_mon = st.radio('시작월', month_abbr, horizontal=True)
-        end_year = st.selectbox("언제까지", list(range(2012,datetime.now().year+1,1)))
-        end_mon = st.radio('종료월', month_abbr, horizontal=True)
-
+    # with st.sidebar.expander('Extract Date'):
+    #     srt_year = st.selectbox("언제부터", date_lst)
+    #     month_abbr = calendar.month_abbr[1:]
+    #     srt_mon = st.radio('시작월', month_abbr, horizontal=True)
+    #     end_year = st.selectbox("언제까지", date_lst, index=len(date_lst)-1)
+    #     end_mon = st.radio('종료월', month_abbr, horizontal=True, index= datetime.now().month-1)
     select_multi_brand = st.sidebar.multiselect(
         '브랜드 선택(다중 선택 가능)',
         df['ORG_CAR_MAKER_KOR'].unique().tolist()
@@ -44,34 +44,45 @@ with st.sidebar:
     )
 
 
-    if month_abbr.index(srt_mon) + 1 < 10:
-        srt_de = str(srt_year) + str(0) + str(month_abbr.index(srt_mon) + 1)
-    else:
-        srt_de = str(srt_year) + str(month_abbr.index(srt_mon) + 1)
-
-    if month_abbr.index(end_mon) + 1 < 10:
-        end_de = str(end_year) + str(0) + str(month_abbr.index(end_mon) + 1)
-    else:
-        end_de = str(end_year) + str(month_abbr.index(end_mon) + 1)
-
+    # if month_abbr.index(srt_mon) + 1 < 10:
+    #     srt_de = str(srt_year) + str(0) + str(month_abbr.index(srt_mon) + 1)
+    # else:
+    #     srt_de = str(srt_year) + str(month_abbr.index(srt_mon) + 1)
+    #
+    # if month_abbr.index(end_mon) + 1 < 10:
+    #     end_de = str(end_year) + str(0) + str(month_abbr.index(end_mon) + 1)
+    # else:
+    #     end_de = str(end_year) + str(month_abbr.index(end_mon) + 1)
+    df2 = df
     if start_button:
-        #slider input으로 받은 값에 해당하는 값을 기준으로 데이터를 필터링합니다.
-        df2 = df[(df['EXTRACT_DE'] >= str(srt_de+'01')) & (df['EXTRACT_DE'] <= str(end_de+'01')) & (df['ORG_CAR_MAKER_KOR'].isin(select_multi_brand))]
-        #st.table(tmp_df)
+        if not select_multi_brand:
+            df2 = df
+        else:
+            df2 = df[df['ORG_CAR_MAKER_KOR'].isin(select_multi_brand)]
+
+    # if start_button:
+    #     if not select_multi_brand:
+    #         #df2 = df[(df['EXTRACT_DE'] >= str(srt_de+'01')) & (df['EXTRACT_DE'] <= str(end_de+'01'))]
+    #         df2 = df
+    #     else:
+    #         #slider input으로 받은 값에 해당하는 값을 기준으로 데이터를 필터링합니다.
+    #         #df2 = df[(df['EXTRACT_DE'] >= str(srt_de+'01')) & (df['EXTRACT_DE'] <= str(end_de+'01')) & (df['ORG_CAR_MAKER_KOR'].isin(select_multi_brand))]
+    #         df2 = df[df['ORG_CAR_MAKER_KOR'].isin(select_multi_brand)]
+
         # 성공문구 + 풍선이 날리는 특수효과
         st.sidebar.success("Filter Applied!")
         st.balloons()
-    else :
-        df2 = df
-        #df2 = df[df["EXTRACT_DE"] == '20231201']
+    # else :
+    #     df2 = df
+
     st.write("CARISYOU DATALAB")
     st.link_button("CarCharts Free", "https://carcharts-free.carisyou.net/")
+
 
 st.markdown("## 2025.02.27. Monthly Summary")
 st.markdown(f"#### 2024년 누적 신규등록대수 : {reg}")
 
-#left_column = st.columns(1, gap="large")
-#right_column = st.columns(1, gap="large")
+
 st.header('월별 누적 신규등록대수')
 tab1, tab2 = st.tabs(['bar','line'])
 
@@ -200,7 +211,7 @@ with bot3le:
     st.plotly_chart(bump_fig, use_container_width=True)
 
 with bot3ri:
-    st.header('브랜드 모델별 신규등록대수')
+    st.subheader('브랜드 모델별 신규등록대수')
     brand = df['ORG_CAR_MAKER_KOR'].unique().tolist()
     brand.sort()
     name = st.selectbox("브랜드", brand)

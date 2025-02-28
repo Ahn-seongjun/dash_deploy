@@ -22,11 +22,21 @@ st.markdown(f"- 제외 대상 : 트레일러")
 
 col_config = {"UY": "사용연수 기술통계량"}
 st.dataframe(ersr_df.describe().iloc[0:3,1],column_config=col_config)
+st.markdown(
+    """
+    <style>
+    [data-testid="stMetricLabel"] p {
+        font-size: 2rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 truck, bus, special = st.columns(3)
 truck.metric(":truck: 트럭", format(cnt[0],','))
-bus.metric(":oncoming_bus: 버스", format(cnt[1],','))
+bus.metric(":bus: 버스", format(cnt[1],','))
 special.metric(":articulated_lorry: 특장차", format(cnt[2],','))
-
+# https://emojiterra.com/bus/ 이모지 사이트
 df_tr = ersr_df[ersr_df['CAR_MOEL_DT'] =='트럭']
 df_bus = ersr_df[ersr_df['CAR_MOEL_DT'] =='버스']
 df_spe = ersr_df[ersr_df['CAR_MOEL_DT'] =='특장차']

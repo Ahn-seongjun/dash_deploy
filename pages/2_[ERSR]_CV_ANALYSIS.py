@@ -33,9 +33,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 truck, bus, special = st.columns(3)
-truck.metric(":truck: 트럭", format(cnt[0],','))
-bus.metric(":bus: 버스", format(cnt[1],','))
-special.metric(":articulated_lorry: 특장차", format(cnt[2],','))
+truck.metric(":truck: 트럭", format(cnt[0],','),border = True)
+bus.metric(":bus: 버스", format(cnt[1],','),border = True)
+special.metric(":articulated_lorry: 특장차", format(cnt[2],','),border = True)
 # https://emojiterra.com/bus/ 이모지 사이트
 df_tr = ersr_df[ersr_df['CAR_MOEL_DT'] =='트럭']
 df_bus = ersr_df[ersr_df['CAR_MOEL_DT'] =='버스']

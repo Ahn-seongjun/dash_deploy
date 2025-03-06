@@ -21,7 +21,7 @@ st.markdown(f"- 집계 대상 : 상용(자가용, 영업용), 말소등록데이
 st.markdown(f"- 제외 대상 : 트레일러")
 
 col_config = {"UY": "사용연수 기술통계량"}
-st.dataframe(ersr_df.describe().iloc[0:3,1],column_config=col_config)
+st.dataframe(ersr_df.describe().iloc[0:3,1],column_config=col_config, width= 400)
 st.markdown(
     """
     <style>

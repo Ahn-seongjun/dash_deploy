@@ -7,7 +7,7 @@ import base64
 import plotly.express as px
 import plotly.graph_objects as go
 
-st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
+st.set_page_config(page_title= "[카이즈유] 승용차 말소분석", layout="wide", initial_sidebar_state="auto")
 
 
 ci_data = pd.read_csv('./data/CI 전처리 데이터.csv')

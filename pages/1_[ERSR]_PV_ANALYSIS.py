@@ -12,6 +12,8 @@ st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layou
 
 ci_data = pd.read_csv('./data/CI 전처리 데이터.csv')
 cl_data = pd.read_csv('./data/CL 전처리 데이터.csv')
+cl_grp = pd.read_csv('./data/cl_그룹별분포용.csv')
+ci_grp = pd.read_csv('./data/ci_그룹별분포용.csv')
 st.markdown("# 승용차 내구성 분석")
 # 사이드바 메뉴 설정
 with st.sidebar:
@@ -81,45 +83,51 @@ with tab1:
         )
         st.plotly_chart(pivo, use_container_width=True)
 
-    # 상위 20개 제조사만 필터링
-    top20_makers = ci_data['ORG_CAR_MAKER_KOR'].value_counts().head(20)#.index
-    filtered_df = ci_data[ci_data['ORG_CAR_MAKER_KOR'].isin(top20_makers.index)]
-    grouped = filtered_df.groupby(['ORG_CAR_MAKER_KOR', 'CAR_BT', 'FUEL'])['TRVL_DSTNC'].mean().reset_index()
+    ci_grp_scatter = px.scatter(ci_grp, x="sur_rate", y="trvl_rate", color="grp", symbol="grp",size= 'score',
+                             hover_name="ORG_CAR_MAKER_KOR", title="산출점수 산점도")
+    st.plotly_chart(ci_grp_scatter, use_container_width=True)
 
-    # 버블 크기를 조정할 수 있도록 정규화
-    grouped['버블크기'] = grouped['TRVL_DSTNC'] / grouped['TRVL_DSTNC'].max() * 40  # 버블 최대크기 조정
-
-    # 3D Scatter plot 생성
-    plot3d = go.Figure(data=[go.Scatter3d(
-        x=grouped['ORG_CAR_MAKER_KOR'],
-        y=grouped['CAR_BT'],
-        z=grouped['FUEL'],
-        mode='markers',
-        marker=dict(
-            size=grouped['버블크기'],
-            color=grouped['TRVL_DSTNC'],
-            colorscale='Viridis',
-            colorbar=dict(title='평균 주행거리(km)'),
-            opacity=0.8
-        ),
-        text=grouped.apply(lambda
-                               row: f"제조사: {row['ORG_CAR_MAKER_KOR']}<br>외형: {row['CAR_BT']}<br>연료: {row['FUEL']}<br>평균주행거리: {row['TRVL_DSTNC']:.0f}km",
-                           axis=1),
-        hoverinfo='text'
-    )])
-
-    plot3d.update_layout(
-        scene=dict(
-            xaxis_title='제조사',
-            yaxis_title='외형',
-            zaxis_title='연료'
-        ),
-        title='TOP 20 제조사 x 외형 x 연료별 평균주행거리 (3D 시각화)',
-        height=700
-    )
-    st.plotly_chart(plot3d, use_container_width=True)
-    st.markdown("#### 말소 대수 상위 20개 브랜드 리스트")
-    st.dataframe(top20_makers, width=400)
+    st.markdown("#### 점수화 집계표")
+    st.dataframe(ci_grp, width=1200)
+    # # 상위 20개 제조사만 필터링
+    # top20_makers = ci_data['ORG_CAR_MAKER_KOR'].value_counts().head(20)#.index
+    # filtered_df = ci_data[ci_data['ORG_CAR_MAKER_KOR'].isin(top20_makers.index)]
+    # grouped = filtered_df.groupby(['ORG_CAR_MAKER_KOR', 'CAR_BT', 'FUEL'])['TRVL_DSTNC'].mean().reset_index()
+    #
+    # # 버블 크기를 조정할 수 있도록 정규화
+    # grouped['버블크기'] = grouped['TRVL_DSTNC'] / grouped['TRVL_DSTNC'].max() * 40  # 버블 최대크기 조정
+    #
+    # # 3D Scatter plot 생성
+    # plot3d = go.Figure(data=[go.Scatter3d(
+    #     x=grouped['ORG_CAR_MAKER_KOR'],
+    #     y=grouped['CAR_BT'],
+    #     z=grouped['FUEL'],
+    #     mode='markers',
+    #     marker=dict(
+    #         size=grouped['버블크기'],
+    #         color=grouped['TRVL_DSTNC'],
+    #         colorscale='Viridis',
+    #         colorbar=dict(title='평균 주행거리(km)'),
+    #         opacity=0.8
+    #     ),
+    #     text=grouped.apply(lambda
+    #                            row: f"제조사: {row['ORG_CAR_MAKER_KOR']}<br>외형: {row['CAR_BT']}<br>연료: {row['FUEL']}<br>평균주행거리: {row['TRVL_DSTNC']:.0f}km",
+    #                        axis=1),
+    #     hoverinfo='text'
+    # )])
+    #
+    # plot3d.update_layout(
+    #     scene=dict(
+    #         xaxis_title='제조사',
+    #         yaxis_title='외형',
+    #         zaxis_title='연료'
+    #     ),
+    #     title='TOP 20 제조사 x 외형 x 연료별 평균주행거리 (3D 시각화)',
+    #     height=700
+    # )
+    # st.plotly_chart(plot3d, use_container_width=True)
+    # st.markdown("#### 말소 대수 상위 20개 브랜드 리스트")
+    # st.dataframe(top20_makers, width=400)
 with tab2:
     st.markdown("- 분석 방법 : 구간별 브랜드/모델별 말소 대수 집계")
     st.markdown("- 분석 범위 : 최초등록연도 기준 구간 집계\n"
@@ -178,45 +186,50 @@ with tab2:
             height=600
         )
         st.plotly_chart(cl_pivo, use_container_width=True)
-    # 상위 20개 제조사만 필터링
-    cl_top20_makers = cl_data['ORG_CAR_MAKER_KOR'].value_counts().head(20)  # .index
-    cl_filtered_df = cl_data[cl_data['ORG_CAR_MAKER_KOR'].isin(top20_makers.index)]
-    cl_grouped = cl_filtered_df.groupby(['ORG_CAR_MAKER_KOR', 'CAR_BT', 'FUEL'])['TRVL_DSTNC'].mean().reset_index()
+    cl_grp_scatter = px.scatter(cl_grp, x="sur_rate", y="trvl_rate", color="grp", symbol="grp", hover_name="ORG_CAR_MAKER_KOR", size= 'score',title="산출점수 산점도")
+    st.plotly_chart(cl_grp_scatter, use_container_width=True)
 
-    # 버블 크기를 조정할 수 있도록 정규화
-    cl_grouped['버블크기'] = cl_grouped['TRVL_DSTNC'] / cl_grouped['TRVL_DSTNC'].max() * 40  # 버블 최대크기 조정
-
-    # 3D Scatter plot 생성
-    cl_plot3d = go.Figure(data=[go.Scatter3d(
-        x=cl_grouped['ORG_CAR_MAKER_KOR'],
-        y=cl_grouped['CAR_BT'],
-        z=cl_grouped['FUEL'],
-        mode='markers',
-        marker=dict(
-            size=cl_grouped['버블크기'],
-            color=cl_grouped['TRVL_DSTNC'],
-            colorscale='Viridis',
-            colorbar=dict(title='평균 주행거리(km)'),
-            opacity=0.8
-        ),
-        text=cl_grouped.apply(lambda
-                               row: f"제조사: {row['ORG_CAR_MAKER_KOR']}<br>외형: {row['CAR_BT']}<br>연료: {row['FUEL']}<br>평균주행거리: {row['TRVL_DSTNC']:.0f}km",
-                           axis=1),
-        hoverinfo='text'
-    )])
-
-    cl_plot3d.update_layout(
-        scene=dict(
-            xaxis_title='제조사',
-            yaxis_title='외형',
-            zaxis_title='연료'
-        ),
-        title='TOP 20 제조사 x 외형 x 연료별 평균주행거리 (3D 시각화)',
-        height=700
-    )
-    st.plotly_chart(cl_plot3d, use_container_width=True)
-    st.markdown("#### 말소 대수 상위 20개 브랜드 리스트")
-    st.dataframe(cl_top20_makers, width=400)
+    st.markdown("#### 점수화 집계표")
+    st.dataframe(cl_grp, width=1200)
+    # # 상위 20개 제조사만 필터링
+    # cl_top20_makers = cl_data['ORG_CAR_MAKER_KOR'].value_counts().head(20)  # .index
+    # cl_filtered_df = cl_data[cl_data['ORG_CAR_MAKER_KOR'].isin(top20_makers.index)]
+    # cl_grouped = cl_filtered_df.groupby(['ORG_CAR_MAKER_KOR', 'CAR_BT', 'FUEL'])['TRVL_DSTNC'].mean().reset_index()
+    #
+    # # 버블 크기를 조정할 수 있도록 정규화
+    # cl_grouped['버블크기'] = cl_grouped['TRVL_DSTNC'] / cl_grouped['TRVL_DSTNC'].max() * 40  # 버블 최대크기 조정
+    #
+    # # 3D Scatter plot 생성
+    # cl_plot3d = go.Figure(data=[go.Scatter3d(
+    #     x=cl_grouped['ORG_CAR_MAKER_KOR'],
+    #     y=cl_grouped['CAR_BT'],
+    #     z=cl_grouped['FUEL'],
+    #     mode='markers',
+    #     marker=dict(
+    #         size=cl_grouped['버블크기'],
+    #         color=cl_grouped['TRVL_DSTNC'],
+    #         colorscale='Viridis',
+    #         colorbar=dict(title='평균 주행거리(km)'),
+    #         opacity=0.8
+    #     ),
+    #     text=cl_grouped.apply(lambda
+    #                            row: f"제조사: {row['ORG_CAR_MAKER_KOR']}<br>외형: {row['CAR_BT']}<br>연료: {row['FUEL']}<br>평균주행거리: {row['TRVL_DSTNC']:.0f}km",
+    #                        axis=1),
+    #     hoverinfo='text'
+    # )])
+    #
+    # cl_plot3d.update_layout(
+    #     scene=dict(
+    #         xaxis_title='제조사',
+    #         yaxis_title='외형',
+    #         zaxis_title='연료'
+    #     ),
+    #     title='TOP 20 제조사 x 외형 x 연료별 평균주행거리 (3D 시각화)',
+    #     height=700
+    # )
+    # st.plotly_chart(cl_plot3d, use_container_width=True)
+    # st.markdown("#### 말소 대수 상위 20개 브랜드 리스트")
+    # st.dataframe(cl_top20_makers, width=400)
 with open('./assets/carcharts.png', "rb") as f:
     data = f.read()
 

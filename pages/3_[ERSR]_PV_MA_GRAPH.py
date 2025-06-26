@@ -4,23 +4,6 @@ import plotly.express as px
 import base64
 
 
-
-# ersr_over = pd.read_csv('./data/해외말소1507_2406.csv')
-# ersr_over['EXTRACT_DE'] = ersr_over['EXTRACT_DE'].astype('str')
-# ersr_over['EXTRACT_DE'] = pd.to_datetime(ersr_over['EXTRACT_DE'])
-# ersr_over['MAX_AVG_TRVL'] = round(ersr_over['TRVL'] * ersr_over['USE_YEAR'], -3)
-# trvl_over = ersr_over.pivot(index='EXTRACT_DE', columns='ORG_CAR_MAKER_KOR', values='MAX_AVG_TRVL')
-# trvl_over = trvl_over.reset_index()
-# trvl_over.dropna(axis=1, inplace=True)
-
-# ersr_na = pd.read_csv('./data/국내말소1507_2406.csv')
-# ersr_na['EXTRACT_DE'] = ersr_na['EXTRACT_DE'].astype('str')
-# ersr_na['EXTRACT_DE'] = pd.to_datetime(ersr_na['EXTRACT_DE'])
-# ersr_na['MAX_AVG_TRVL'] = round(ersr_na['TRVL'] * ersr_na['USE_YEAR'], -3)
-# trvl_na = ersr_na.pivot(index='EXTRACT_DE', columns='ORG_CAR_MAKER_KOR', values='MAX_AVG_TRVL')
-# trvl_na = trvl_na.reset_index()
-# trvl_na.dropna(axis=1, inplace=True)
-
 df = pd.read_csv('./data/이평선용.csv')
 
 st.set_page_config(page_title= "[카이즈유] 승용차 이동평균 그래프", layout="wide", initial_sidebar_state="auto")

@@ -139,7 +139,7 @@ with tab2:
 
     left1_1, right1_1 = st.columns([2, 2], gap="large")
     with left1_1:
-        cl_dist = px.histogram(cl_data, x="TRVL_DSTNC", nbins=100, title='전처리 후 주행거리 분포(CI)', color_discrete_sequence=['#00dac4'])
+        cl_dist = px.histogram(cl_data, x="TRVL_DSTNC", nbins=100, title='전처리 후 주행거리 분포(CL)', color_discrete_sequence=['#00dac4'])
         cl_dist.update_layout(xaxis_title_text='주행거리')
         st.plotly_chart(cl_dist, use_container_width=True)
     with right1_1:

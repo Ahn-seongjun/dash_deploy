@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit_authenticator as stauth
+
 # Streamlit 세션 상태 초기화
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False

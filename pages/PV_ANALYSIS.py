@@ -16,6 +16,24 @@ cl_grp = pd.read_csv('./data/cl_그룹별분포용.csv')
 ci_grp = pd.read_csv('./data/ci_그룹별분포용.csv')
 st.markdown("# 승용차 내구성 분석")
 # 사이드바 메뉴 설정
+# summary = st.Page(
+#     "summary.py", title="New Regist summary", icon=":material/dashboard:")
+# pv_ana = st.Page(
+#     "pages/PV_ANALYSIS.py", title="PV ANALYSIS", icon=":material/dashboard:", default=True)
+# pv_frst = st.Page("pages/PV_FRST_YEAR_DATASET.py", title="PV FRST YEAR DATASET", icon=":material/dataset:")
+# pv_ma = st.Page(
+#     "pages/PV_MA_GRAPH.py", title="PV MA GRAPH", icon=":material/ssid_chart:"
+# )
+# cv_ana = st.Page("pages/CV_ANALYSIS.py", title="CV ANALYSIS", icon=":material/dashboard:")
+# # (icon search) https://fonts.google.com/icons?selected=Material+Symbols+Outlined:docs:FILL@0;wght@400;GRAD@0;opsz@24&icon.size=24&icon.color=%231f1f1f
+# pg = st.navigation(
+#         {
+#             "pages": [summary],
+#             "ERSR Analysis": [pv_ana,pv_frst,pv_ma,cv_ana]
+#         }
+#     )
+# pg.run()
+
 with st.sidebar:
 
     st.write("CARISYOU DATALAB")

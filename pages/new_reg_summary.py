@@ -21,19 +21,9 @@ df_bar['date'] = pd.to_datetime(df_bar['date'])
 df['EXTRACT_DE'] = df['EXTRACT_DE'].astype('str')
 reg = format(df['CNT'].sum(), ',d')
 
-# start_date = datetime(2012, 1, 1)
-# end_date = datetime.now()
-# date_lst = list(range(2012,datetime.now().year+1,1))
 
-#tmp = range(2012,datetime.now().year+1,1).tolist()
 # 사이드바 메뉴 설정
 with st.sidebar:
-    # with st.sidebar.expander('Extract Date'):
-    #     srt_year = st.selectbox("언제부터", date_lst)
-    #     month_abbr = calendar.month_abbr[1:]
-    #     srt_mon = st.radio('시작월', month_abbr, horizontal=True)
-    #     end_year = st.selectbox("언제까지", date_lst, index=len(date_lst)-1)
-    #     end_mon = st.radio('종료월', month_abbr, horizontal=True, index= datetime.now().month-1)
     select_multi_brand = st.sidebar.multiselect(
         '브랜드 선택(다중 선택 가능)',
         df['ORG_CAR_MAKER_KOR'].unique().tolist()
@@ -43,16 +33,6 @@ with st.sidebar:
         "filter apply"  # "버튼에 표시될 내용"
     )
 
-
-    # if month_abbr.index(srt_mon) + 1 < 10:
-    #     srt_de = str(srt_year) + str(0) + str(month_abbr.index(srt_mon) + 1)
-    # else:
-    #     srt_de = str(srt_year) + str(month_abbr.index(srt_mon) + 1)
-    #
-    # if month_abbr.index(end_mon) + 1 < 10:
-    #     end_de = str(end_year) + str(0) + str(month_abbr.index(end_mon) + 1)
-    # else:
-    #     end_de = str(end_year) + str(month_abbr.index(end_mon) + 1)
     df2 = df
     if start_button:
         if not select_multi_brand:
@@ -60,20 +40,9 @@ with st.sidebar:
         else:
             df2 = df[df['ORG_CAR_MAKER_KOR'].isin(select_multi_brand)]
 
-    # if start_button:
-    #     if not select_multi_brand:
-    #         #df2 = df[(df['EXTRACT_DE'] >= str(srt_de+'01')) & (df['EXTRACT_DE'] <= str(end_de+'01'))]
-    #         df2 = df
-    #     else:
-    #         #slider input으로 받은 값에 해당하는 값을 기준으로 데이터를 필터링합니다.
-    #         #df2 = df[(df['EXTRACT_DE'] >= str(srt_de+'01')) & (df['EXTRACT_DE'] <= str(end_de+'01')) & (df['ORG_CAR_MAKER_KOR'].isin(select_multi_brand))]
-    #         df2 = df[df['ORG_CAR_MAKER_KOR'].isin(select_multi_brand)]
 
-        # 성공문구 + 풍선이 날리는 특수효과
         st.sidebar.success("Filter Applied!")
         st.balloons()
-    # else :
-    #     df2 = df
 
     st.write("CARISYOU DATALAB")
     st.link_button("CarCharts Free", "https://carcharts-free.carisyou.net/")

@@ -75,7 +75,6 @@ mon_reg.add_trace(
 
 # 레이아웃 설정
 mon_reg.update_layout(
-    #title=f'연료 : {fuel}',
     xaxis_title='2024년',
     yaxis_title='말소대수',
     legend=dict(x=0.01, y=0.99),
@@ -97,11 +96,17 @@ bot3le,bot3ri = st.columns(2, gap="large")
 with midleft_column:
     st.subheader('국산 말소대수 TOP 10')
     brand_na = df[df['CL_HMMD_IMP_SE_NM']=='국산'].groupby('ORG_CAR_MAKER_KOR')[['val']].sum().sort_values(by='val', ascending=False).head(10).reset_index()
-    #br_na = go.Figure()
     br_na = px.bar(brand_na, x="val", y="ORG_CAR_MAKER_KOR", color='ORG_CAR_MAKER_KOR', orientation='h',
                  hover_data=["ORG_CAR_MAKER_KOR", "val"],
                  height=600,
                  title='국산 브랜드별 말소 대수 TOP 10')
+    br_na.update_layout(
+        xaxis_title='대수',
+        yaxis_title='브랜드',
+        legend_title_text = '브랜드',
+        template='plotly_white'
+
+    )
     st.plotly_chart(br_na, use_container_width=True)
 
     mo_na_cnt = df[df['CL_HMMD_IMP_SE_NM'] == '국산'].groupby('CAR_MOEL_DT')[['val']].sum().sort_values(by='val',
@@ -111,15 +116,28 @@ with midleft_column:
                    hover_data=["CAR_MOEL_DT", "val"],
                    height=600,
                    title='국산 모델별 말소 대수 TOP 10')
+    mo_na.update_layout(
+        xaxis_title='대수',
+        yaxis_title='모델',
+        legend_title_text = '모델',
+        template='plotly_white'
+
+    )
     st.plotly_chart(mo_na, use_container_width=True)
 with midright_column:
     st.subheader('수입 말소대수 TOP 10')
     brand_im = df[df['CL_HMMD_IMP_SE_NM']=='외산'].groupby('ORG_CAR_MAKER_KOR')[['val']].sum().sort_values(by='val', ascending=False).head(10).reset_index()
-    #br_im = go.Figure()
     br_im = px.bar(brand_im, x="val", y="ORG_CAR_MAKER_KOR", color='ORG_CAR_MAKER_KOR', orientation='h',
                  hover_data=["ORG_CAR_MAKER_KOR", "val"],
                  height=600,
                  title='수입 브랜드별 말소 대수 TOP 10')
+    br_im.update_layout(
+        xaxis_title='대수',
+        yaxis_title='브랜드',
+        legend_title_text = '브랜드',
+        template='plotly_white'
+
+    )
     st.plotly_chart(br_im, use_container_width=True)
 
     mo_im_cnt = df[df['CL_HMMD_IMP_SE_NM'] == '외산'].groupby('CAR_MOEL_DT')[['val']].sum().sort_values(by='val',
@@ -129,6 +147,13 @@ with midright_column:
                    hover_data=["CAR_MOEL_DT", "val"],
                    height=600,
                    title='수입 모델별 말소 대수 TOP 10')
+    mo_im.update_layout(
+        xaxis_title='대수',
+        yaxis_title='모델',
+        legend_title_text = '모델',
+        template='plotly_white'
+
+    )
     st.plotly_chart(mo_im, use_container_width=True)
 
 with botleft_column:
@@ -136,8 +161,6 @@ with botleft_column:
     st.plotly_chart(sou_gb, use_container_width=True)
 
 with botright_column:
-    #labels = df.groupby('연령')['EXTRACT_DE'].count().index.tolist()
-    #values = df.groupby('연령')['EXTRACT_DE'].count().values.tolist()
     df1 = df.groupby('연령')['val'].sum().reset_index()
     sou_age = px.pie(df1, values="val", names="연령", hole=.3,title="소유자 연령별 분포")
     st.plotly_chart(sou_age, use_container_width=True)

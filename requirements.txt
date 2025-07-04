@@ -1,6 +1,6 @@
 streamlit==1.41.1
 pandas
-plotly
+plotly == 6.2.0
 plotly.express
 folium
 streamlit_folium

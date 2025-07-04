@@ -104,10 +104,10 @@ with tab1:
         pivot = pivot.style.apply(draw_color_at_value, color='#00dac4', axis=0)
         st.markdown(f"- Upper Outlier(사용연수 {upper_fence} 이상)")
         st.dataframe(pivot, column_config=col_config2, width= 700)
-    fig_scat_tr = px.scatter(df_tr, x='UY', y='TRVL_DSTNC', color='ORG_CAR_MAKER_KOR', trendline="ols",
-                              title='주행거리 / 사용연수 산점도')
-    st.plotly_chart(fig_scat_tr, use_container_width=True)
-    st.markdown("- 트럭의 내구성 분석에 주행거리는 연관이 없음을 확인 할 수 있음")
+    # fig_scat_tr = px.scatter(df_tr, x='UY', y='TRVL_DSTNC', color='ORG_CAR_MAKER_KOR', trendline="ols",
+    #                           title='주행거리 / 사용연수 산점도')
+    # st.plotly_chart(fig_scat_tr, use_container_width=True)
+    # st.markdown("- 트럭의 내구성 분석에 주행거리는 연관이 없음을 확인 할 수 있음")
 with tab2:
     prpos = ['전체', '자가용', '영업용']
     name = st.selectbox("등록용도", prpos)

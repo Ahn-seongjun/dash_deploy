@@ -143,13 +143,13 @@ with tab2:
         st.markdown("- 1년 환산 주행거리 40만km 이하를 대상으로 집계함")
         st.markdown("- 1년 환산 주행거리 산출근거 : 주행거리/사용연수")
     #left4, right4 = st.columns([2, 2], gap="large")
-    tmp_bus2 = tmp_bus[tmp_bus['1YperD'] <= 400000]
-    fig_scat_bus = px.scatter(tmp_bus2, x='1YperD', y='TRVL_DSTNC', color='ORG_CAR_MAKER_KOR', trendline="ols",title='주행거리 / 1년 환산 주행거리(40만km 이하) 산점도')
-    st.plotly_chart(fig_scat_bus, use_container_width=True)
+    # tmp_bus2 = tmp_bus[tmp_bus['1YperD'] <= 400000]
+    # fig_scat_bus = px.scatter(tmp_bus2, x='1YperD', y='TRVL_DSTNC', color='ORG_CAR_MAKER_KOR', trendline="ols",title='주행거리 / 1년 환산 주행거리(40만km 이하) 산점도')
+    # st.plotly_chart(fig_scat_bus, use_container_width=True)
 
-    fig_scat_bus2 = px.scatter(tmp_bus2, x='UY', y='TRVL_DSTNC', color='ORG_CAR_MAKER_KOR', trendline="ols",title='주행거리 / 사용연수 산점도')
-    st.plotly_chart(fig_scat_bus2, use_container_width=True)
-    st.markdown("- 버스의 내구성 분석에 주행거리는 연관이 없음을 확인 할 수 있음")
+    # fig_scat_bus2 = px.scatter(tmp_bus2, x='UY', y='TRVL_DSTNC', color='ORG_CAR_MAKER_KOR', trendline="ols",title='주행거리 / 사용연수 산점도')
+    # st.plotly_chart(fig_scat_bus2, use_container_width=True)
+    # st.markdown("- 버스의 내구성 분석에 주행거리는 연관이 없음을 확인 할 수 있음")
 with tab3:
     use = df_spe['CAR_USE'].unique().tolist()
     use.insert(0,'전체')

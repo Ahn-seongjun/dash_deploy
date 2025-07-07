@@ -125,12 +125,14 @@ with botright_column:
     fig6 = px.scatter(df4, x="CAR_BT", y="FUEL", size="CNT", hover_name="CNT", size_max=60,labels=dict(CAR_BT="외형", FUEL="연료"))
     st.plotly_chart(fig6, use_container_width=True)
 
-#df5 = df[(df['EXTRACT_DE'] == 20231201) & (df['CL_HMMD_IMP_SE_NM'] == '국산')]
-#with bot2left:
-    # df6 = pd.pivot_table(df5, values='ORG_CAR_MAKER_KOR', index='CAR_MOEL_DT',
-    #                columns='CL_HMMD_IMP_SE_NM', aggfunc='count').sort_values(by='국산', ascending=False).head(10)
-    #st.subheader('국산 TOP 10')
-    #st.dataframe(df2)
+with bot2left:
+    df_own=df2.groupby(['EXTRACT_DE', 'OWNER_GB'])[['CNT']].sum().reset_index()
+    df_own['EXTRACT_DE'] = df_own['EXTRACT_DE'].astype('str')
+    df_own['EXTRACT_DE'] = pd.to_datetime(df_own['EXTRACT_DE'])
+    #st.dataframe(df_own.info())
+    #print(df_own)
+    fig_own = px.bar(df_own, x='EXTRACT_DE', y = 'CNT', color = 'OWNER_GB',labels=dict(EXTRACT_DE="2024년", CNT="대수"))
+    st.plotly_chart(fig_own, use_container_width=True)
 
 #df7 = df[(df['EXTRACT_DE'] == 20231201) & (df['CL_HMMD_IMP_SE_NM'] == '외산')]
 #with bot2right:

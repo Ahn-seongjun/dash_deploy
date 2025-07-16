@@ -89,14 +89,15 @@ st.write(
     """
 # A/B Testing App
 - 실험 데이터를 업로드하여 A/B test 진행
-- 출처) Streamlit Gallery
+- 대시보드 출처) Streamlit Gallery
+- 데이터 출처) https://www.kaggle.com/code/ekrembayar/a-b-testing-step-by-step-hypothesis-testing
 """
 )
 
 uploaded_file = st.file_uploader("Upload CSV", type=".csv")
 
 use_example_file = st.checkbox(
-    "예제 파일 활용", True, help="App 활용 예시로 예제 파일 제"
+    "예제 파일 활용", True, help="App 활용 예시로 예제 파일 제공"
 )
 
 ab_default = None
@@ -105,9 +106,9 @@ result_default = None
 # If CSV is not uploaded and checkbox is filled, use values from the example file
 # and pass them down to the next if block
 if use_example_file:
-    uploaded_file = "./data/Website_Results.csv"
-    ab_default = ["variant"]
-    result_default = ["converted"]
+    uploaded_file = "./data/cookie_cats.csv"
+    ab_default = ["version"]
+    result_default = ["retention_1"]
 
 
 if uploaded_file:
@@ -118,7 +119,10 @@ if uploaded_file:
 
     st.markdown("### 분석 대상 컬럼 선택")
     with st.form(key="my_form"):
-        ab = st.selectbox("A/B column", options= df.columns, help="그룹 컬럼 선택")
+        for i, col in enumerate(df.columns):
+            if df[col].dtype == 'object' and df[col].nunique() == 2:
+                col_default = i
+        ab = st.selectbox("A/B column", options= df.columns, help="그룹 컬럼 선택(그룹 컬럼의 고유값은 2입니다.)",index = col_default)
 
         if ab:
             control = df[ab].unique()[0]

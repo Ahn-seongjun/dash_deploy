@@ -31,6 +31,7 @@ pv_ma = st.Page(
 cv_ana = st.Page("dur_pages/CV_ANALYSIS.py", title="CV ANALYSIS", icon=":material/dashboard:")
 
 ab_ana = st.Page("contents_pages/ab_test_platform.py", title="AB TEST", icon=":material/analytics:")
+chatbot = st.Page("contents_pages/GPT Chatbot.py", title="Chat Bot", icon=":material/chat:")
 
 login = st.Page("account_pages/login_page.py", title="Log in", icon=":material/login:")
 #signup = st.Page("pages/signup_page.py", title="Sign up", icon=":material/add:")  # 임시 회원가입 페이지
@@ -42,7 +43,7 @@ if st.session_state.logged_in:
         {
             "HOME": [new_summary,ersr_summary],
             "Durability Project": [pv_ana, pv_frst, pv_ma, cv_ana],
-            "Contents": [ab_ana],
+            "Contents": [ab_ana,chatbot],
             "Account": [logout]
         }
     )
@@ -50,7 +51,7 @@ else:
     pg = st.navigation(
         {
             "HOME": [new_summary,ersr_summary],
-            "Contents": [ab_ana],
+            "Contents": [ab_ana,chatbot],
             "Account": [login]#, signup]
         }
     )

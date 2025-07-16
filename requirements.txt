@@ -4,3 +4,5 @@ plotly == 6.2.0
 plotly.express
 folium
 streamlit_folium
+langchain>=0.0.217
+openai>=1.2

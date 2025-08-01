@@ -126,6 +126,7 @@ with botright_column:
     st.plotly_chart(fig6, use_container_width=True)
 
 with bot2left:
+    st.subheader('월별 소유자 유형별 신차등록대수')
     df_own=df2.groupby(['EXTRACT_DE', 'OWNER_GB'])[['CNT']].sum().reset_index()
     df_own['EXTRACT_DE'] = df_own['EXTRACT_DE'].astype('str')
     df_own['EXTRACT_DE'] = pd.to_datetime(df_own['EXTRACT_DE'])
@@ -134,6 +135,12 @@ with bot2left:
     fig_own = px.bar(df_own, x='EXTRACT_DE', y = 'CNT', color = 'OWNER_GB',labels=dict(EXTRACT_DE="2024년", CNT="대수"))
     st.plotly_chart(fig_own, use_container_width=True)
 
+with bot2right:
+    st.subheader('연령별 신차등록 비중')
+    df_age = df.groupby(['AGE'])[['CNT']].sum().reset_index()
+    age_order = ['20대', '30대', '40대', '50대', '60대', '70대', '법인및사업자']
+    fig_age = px.pie(df_age, values="CNT", names="AGE", hole=.3, category_orders={'AGE': age_order})
+    st.plotly_chart(fig_age, use_container_width=True)
 #df7 = df[(df['EXTRACT_DE'] == 20231201) & (df['CL_HMMD_IMP_SE_NM'] == '외산')]
 #with bot2right:
     # df8 = pd.pivot_table(df7, values='ORG_CAR_MAKER_KOR', index='CAR_MOEL_DT',
@@ -161,8 +168,7 @@ with bot3le:
     rank_df = numeric_df.rank(axis=1, method='min', ascending=True)
     sort_fields = rank_df.loc[2012].sort_values().index
     # 범프 차트
-    bump_fig = px.line(rank_df, x=rank_df.index, y=sort_fields,
-                       title='연도별 분야별 지출 순위')
+    bump_fig = px.line(rank_df, x=rank_df.index, y=sort_fields)
     # 트레이스 별로 hovertemplate 설정
     for trace in bump_fig.data:
         trace.hovertemplate = '%{x}<br>등록대수: ' + \

@@ -137,7 +137,16 @@ if uploaded_file:
             visitors_a = df[ab].value_counts()[control]
             visitors_b = df[ab].value_counts()[treatment]
         bool_col_indices = [i for i, dtype in enumerate(df.dtypes) if dtype == bool]
-        result = st.selectbox("Result column", options=df.columns, help = "결과 컬럼 선택(결과 컬럼의 형태는 Boolean이어야 함.)",index=bool_col_indices[0])
+        #result = st.selectbox("Result column", options=df.columns, help = "결과 컬럼 선택(결과 컬럼의 형태는 Boolean이어야 함.)",index=bool_col_indices[0])
+        if not bool_col_indices:
+            st.warning("Boolean형 결과 컬럼이 필요합니다.")
+            st.stop()
+        result = st.selectbox(
+            "Result column",
+            options=df.columns,
+            help="결과 컬럼 선택(결과 컬럼의 형태는 Boolean이어야 함.)",
+            index=bool_col_indices[0],
+        )
 
         if result:
             conversions_a = (
@@ -192,7 +201,6 @@ if uploaded_file:
 
     mcol1, mcol2 = st.columns(2)
 
-    # Use st.metric to diplay difference in conversion rates
     with mcol1:
         st.metric(
             "Delta",
@@ -202,9 +210,6 @@ if uploaded_file:
     # Display whether or not A/B test result is statistically significant
     with mcol2:
         st.metric("Significant?", value=st.session_state.significant)
-
-    # Create a single-row, two-column DataFrame to use in bar chart
-
 
     #ncol1, ncol2 = st.columns([2, 1])
     ncol1, ncol2 = st.columns(2)

@@ -17,7 +17,7 @@ def login():
 
 # 로그인 화면
 if not st.session_state["logged_in"]:
-    st.title("Login")
+    st.title("Login",help="if you want to see the logged-in version...enter that(ID: admin, password: password)")
     id = st.text_input("ID")
     pw = st.text_input("Password", type="password")
     if st.button("LOGIN"):

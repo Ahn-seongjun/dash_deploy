@@ -4,7 +4,6 @@ import plotly.express as px
 import warnings
 warnings.filterwarnings('ignore')
 import base64
-from streamlit_extras.metric_cards import style_metric_cards
 from datetime import datetime,timedelta
 from dateutil.relativedelta import *
 
@@ -39,7 +38,6 @@ new.metric("신규 등록", format(df['NEW_CNT'][202508],','),f"{cal(df['NEW_CNT
 used.metric("이전 등록", format(df['USED_CNT'][202508],','),f"{cal(df['USED_CNT'][202508], df['USED_CNT'][202507])}%",border = True)
 ersr.metric("말소 등록", format(df['ERSR_CNT'][202508],','),f"{cal(df['ERSR_CNT'][202508], df['ERSR_CNT'][202507])}%",border = True)
 op.metric("운행 등록", format(int(26434579),','),f"{cal(26434579, 26425398)}%",border = True)
-style_metric_cards()
 
 with open('./assets/carcharts.png', "rb") as f:
     data = f.read()

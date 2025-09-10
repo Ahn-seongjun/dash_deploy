@@ -15,6 +15,7 @@ df = pd.read_csv('./data/202508monthly_cnt.csv', index_col=0)
 top = pd.read_csv('./data/202508_top.csv', index_col=0)
 mon_cnt = pd.read_csv('./data/24_25_moncnt.csv', index_col=0)
 new_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='신규')
+new_seg['EXTRACT_DE'] = new_seg['EXTRACT_DE'].astype('str')
 used_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='이전')
 er_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='말소')
 # 전년, 전월대비 계산
@@ -94,7 +95,9 @@ st.markdown(
     </style>
     """, unsafe_allow_html=True)
 tab1, tab2, tab3 = st.tabs(['신규','이전','말소'])
-
+sz_order = ['소형', '경형', '준중형','중형','준대형','대형']
+bt_order = ['SUV','세단','RV','해치백','픽업트럭','컨버터블','쿠페','왜건']
+fu_order = ['휘발유','경유','LPG','하이브리드','전기','수소']
 with tab1:
     st.subheader('신규등록 추이 및 전년 비교')
     st.markdown("- 이삿짐, 부활차 제외")
@@ -146,15 +149,38 @@ with tab1:
     st.plotly_chart(fig1, use_container_width=True)
     new_col1, new_col2 = st.columns([2, 2], gap="large")
     with new_col1:
-        st.subheader("2025년 8월 차급별 신차등록 점유율")
+        st.subheader(f"{month}월 차급별 신차등록 점유율")
+        df_sz = new_seg[new_seg['EXTRACT_DE'] == '202508'].groupby(['CAR_SZ'])[['CNT']].sum().reset_index()
+        new_sz = px.pie(df_sz, values="CNT", names="CAR_SZ", hole=.3, category_orders={'CAR_SZ': sz_order})
+        st.plotly_chart(new_sz, use_container_width=True)
     with new_col2:
-        st.subheader("2025년 월별 차급 누적 영역 그래프")
-
+        st.subheader(f"{year}년 월별 차급 누적 영역 그래프")
+        stacked_area = new_seg.groupby(['EXTRACT_DE', 'CAR_SZ'])[['CNT']].sum().reset_index()
+        stacked_area["EXTRACT_DE"] = pd.to_datetime(
+            stacked_area["EXTRACT_DE"].astype(str), format="%Y%m"
+        )
+        area_sz = px.area(stacked_area, x="EXTRACT_DE", y="CNT", color="CAR_SZ",
+                      pattern_shape="CAR_SZ",
+                      category_orders={"CAR_SZ": sz_order})
+        area_sz.update_xaxes(dtick="M1", tickformat="%Y-%m")
+        st.plotly_chart(area_sz, use_container_width=True)
     new_col3, new_col4 = st.columns([2, 2], gap="large")
     with new_col3:
-        st.subheader("2025년 8월 외형별 신차등록 점유율")
+        st.subheader(f"{month}월 외형별 신차등록 점유율")
+        df_bt = new_seg[new_seg['EXTRACT_DE'] == '202508'].groupby(['CAR_BT'])[['CNT']].sum().reset_index()
+        new_bt = px.pie(df_bt, values="CNT", names="CAR_BT", hole=.3, category_orders={'CAR_BT': bt_order})
+        st.plotly_chart(new_bt, use_container_width=True)
     with new_col4:
-        st.subheader("2025년 월별 외형급 누적 영역 그래프")
+        st.subheader(f"{year}년 월별 외형급 누적 영역 그래프")
+        stacked_area = new_seg.groupby(['EXTRACT_DE', 'CAR_BT'])[['CNT']].sum().reset_index()
+        stacked_area["EXTRACT_DE"] = pd.to_datetime(
+            stacked_area["EXTRACT_DE"].astype(str), format="%Y%m"
+        )
+        area_bt = px.area(stacked_area, x="EXTRACT_DE", y="CNT", color="CAR_BT",
+                          pattern_shape="CAR_BT",
+                          category_orders={"CAR_BT": bt_order})
+        area_bt.update_xaxes(dtick="M1", tickformat="%Y-%m")
+        st.plotly_chart(area_bt, use_container_width=True)
 
 with tab2:
     st.subheader('이전등록 실거래 추이 및 전년 비교')

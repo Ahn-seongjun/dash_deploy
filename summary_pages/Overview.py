@@ -163,6 +163,7 @@ with tab1:
                       pattern_shape="CAR_SZ",
                       category_orders={"CAR_SZ": sz_order})
         area_sz.update_xaxes(dtick="M1", tickformat="%Y-%m")
+        area_sz.update_xaxes(title_text="날짜")
         st.plotly_chart(area_sz, use_container_width=True)
     new_col3, new_col4 = st.columns([2, 2], gap="large")
     with new_col3:
@@ -180,6 +181,7 @@ with tab1:
                           pattern_shape="CAR_BT",
                           category_orders={"CAR_BT": bt_order})
         area_bt.update_xaxes(dtick="M1", tickformat="%Y-%m")
+        area_bt.update_xaxes(title_text="날짜")
         st.plotly_chart(area_bt, use_container_width=True)
 
 with tab2:

@@ -14,9 +14,9 @@ st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layou
 df = pd.read_csv('./data/202508monthly_cnt.csv', index_col=0)
 top = pd.read_csv('./data/202508_top.csv', index_col=0)
 mon_cnt = pd.read_csv('./data/24_25_moncnt.csv', index_col=0)
-new_seg = pd.read_excel('./data/2025차급외형연료.xlsx',sheet_name='신규')
-used_seg = pd.read_excel('./data/2025차급외형연료.xlsx',sheet_name='이전')
-er_seg = pd.read_excel('./data/2025차급외형연료.xlsx',sheet_name='말소')
+new_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='신규')
+used_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='이전')
+er_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='말소')
 # 전년, 전월대비 계산
 def cal(x,y):
     result = round((x-y)/y,2)

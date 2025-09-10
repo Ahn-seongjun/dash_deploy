@@ -14,7 +14,9 @@ st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layou
 df = pd.read_csv('./data/202508monthly_cnt.csv', index_col=0)
 top = pd.read_csv('./data/202508_top.csv', index_col=0)
 mon_cnt = pd.read_csv('./data/24_25_moncnt.csv', index_col=0)
-# df_use = pd.read_csv('./data/12-24누적 용도별 등록대수.csv')
+new_seg = pd.read_excel('./data/2025차급외형연료.xlsx',sheet_name='신규')
+used_seg = pd.read_excel('./data/2025차급외형연료.xlsx',sheet_name='이전')
+er_seg = pd.read_excel('./data/2025차급외형연료.xlsx',sheet_name='말소')
 # 전년, 전월대비 계산
 def cal(x,y):
     result = round((x-y)/y,2)
@@ -141,11 +143,22 @@ with tab1:
     fig1.update_yaxes(title_text="등록대수", secondary_y=False)
     fig1.update_yaxes(title_text="전년대비 증감률 (%)", secondary_y=True)
     fig1.update_xaxes(title_text="월")
-
     st.plotly_chart(fig1, use_container_width=True)
+    new_col1, new_col2 = st.columns([2, 2], gap="large")
+    with new_col1:
+        st.subheader("2025년 8월 차급별 신차등록 점유율")
+    with new_col2:
+        st.subheader("2025년 월별 차급 누적 영역 그래프")
+
+    new_col3, new_col4 = st.columns([2, 2], gap="large")
+    with new_col3:
+        st.subheader("2025년 8월 외형별 신차등록 점유율")
+    with new_col4:
+        st.subheader("2025년 월별 외형급 누적 영역 그래프")
+
 with tab2:
     st.subheader('이전등록 실거래 추이 및 전년 비교')
-    st.markdown("- 매도, 알선, 개인거래 대상 집계")
+    st.markdown("- 실거래(매도, 알선, 개인거래) 대상 집계")
     pvt_used = mon_cnt.pivot_table(index='MON', columns='YEA', values='USED_CNT', aggfunc='sum')
     latest_year = pvt_used.columns.max()
     prev_year = latest_year - 1
@@ -190,6 +203,18 @@ with tab2:
     fig2.update_xaxes(title_text="월")
 
     st.plotly_chart(fig2, use_container_width=True)
+
+    used_col1, used_col2 = st.columns([2, 2], gap="large")
+    with used_col1:
+        st.subheader("2025년 8월 차급별 이전등록 점유율")
+    with used_col2:
+        st.subheader("2025년 월별 차급 누적 영역 그래프")
+
+    used_col3, used_col4 = st.columns([2, 2], gap="large")
+    with used_col3:
+        st.subheader("2025년 8월 외형별 이전등록 점유율")
+    with used_col4:
+        st.subheader("2025년 월별 외형급 누적 영역 그래프")
 with tab3:
     st.subheader('말소등록 추이 및 전년 비교')
     st.markdown("- 폐차, 수출예정 대상 집계")
@@ -237,6 +262,18 @@ with tab3:
     fig3.update_xaxes(title_text="월")
 
     st.plotly_chart(fig3, use_container_width=True)
+
+    er_col1, er_col2 = st.columns([2, 2], gap="large")
+    with er_col1:
+        st.subheader("2025년 8월 차급별 말소등록 점유율")
+    with er_col2:
+        st.subheader("2025년 월별 차급 누적 영역 그래프")
+
+    er_col3, er_col4 = st.columns([2, 2], gap="large")
+    with er_col3:
+        st.subheader("2025년 8월 외형별 말소등록 점유율")
+    with er_col4:
+        st.subheader("2025년 월별 외형급 누적 영역 그래프")
 
 
 

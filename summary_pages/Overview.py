@@ -17,7 +17,9 @@ mon_cnt = pd.read_csv('./data/24_25_moncnt.csv', index_col=0)
 new_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='신규')
 new_seg['EXTRACT_DE'] = new_seg['EXTRACT_DE'].astype('str')
 used_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='이전')
+used_seg['EXTRACT_DE'] = used_seg['EXTRACT_DE'].astype('str')
 er_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='말소')
+er_seg['EXTRACT_DE'] = er_seg['EXTRACT_DE'].astype('str')
 # 전년, 전월대비 계산
 def cal(x,y):
     result = round((x-y)/y,2)
@@ -98,6 +100,10 @@ tab1, tab2, tab3 = st.tabs(['신규','이전','말소'])
 sz_order = ['소형', '경형', '준중형','중형','준대형','대형']
 bt_order = ['SUV','세단','RV','해치백','픽업트럭','컨버터블','쿠페','왜건']
 fu_order = ['휘발유','경유','LPG','하이브리드','전기','수소']
+seg = ['차급','외형','연료']
+seg_dict = {'차급':['CAR_SZ',sz_order],
+            '외형':['CAR_BT',bt_order],
+            '연료':['USE_FUEL_NM',fu_order]}
 with tab1:
     st.subheader('신규등록 추이 및 전년 비교')
     st.markdown("- 이삿짐, 부활차 제외")
@@ -148,12 +154,8 @@ with tab1:
     fig1.update_xaxes(title_text="월")
     st.plotly_chart(fig1, use_container_width=True)
 
-    seg = ['차급','외형','연료']
-    # use.sort()
-    segment = st.selectbox("세부 구분", seg)
-    seg_dict = {'차급':['CAR_SZ',sz_order],
-                '외형':['CAR_BT',bt_order],
-                '연료':['USE_FUEL_NM',fu_order]}
+
+    segment = st.selectbox("세부 구분", seg, key= "new")
     new_col1, new_col2 = st.columns([2, 2], gap="large")
     with new_col1:
         st.subheader(f"{month}월 {segment}별 신차등록 점유율")
@@ -172,42 +174,6 @@ with tab1:
         area_sz.update_xaxes(dtick="M1", tickformat="%Y-%m")
         area_sz.update_xaxes(title_text="날짜")
         st.plotly_chart(area_sz, use_container_width=True)
-    new_col3, new_col4 = st.columns([2, 2], gap="large")
-    # with new_col3:
-    #     st.subheader(f"{month}월 외형별 신차등록 점유율")
-    #     df_bt = new_seg[new_seg['EXTRACT_DE'] == '202508'].groupby(['CAR_BT'])[['CNT']].sum().reset_index()
-    #     new_bt = px.pie(df_bt, values="CNT", names="CAR_BT", hole=.3, category_orders={'CAR_BT': bt_order})
-    #     st.plotly_chart(new_bt, use_container_width=True)
-    # with new_col4:
-    #     st.subheader(f"{year}년 월별 외형별 누적 영역 그래프")
-    #     stacked_area = new_seg.groupby(['EXTRACT_DE', 'CAR_BT'])[['CNT']].sum().reset_index()
-    #     stacked_area["EXTRACT_DE"] = pd.to_datetime(
-    #         stacked_area["EXTRACT_DE"].astype(str), format="%Y%m"
-    #     )
-    #     area_bt = px.area(stacked_area, x="EXTRACT_DE", y="CNT", color="CAR_BT",
-    #                       pattern_shape="CAR_BT",
-    #                       category_orders={"CAR_BT": bt_order})
-    #     area_bt.update_xaxes(dtick="M1", tickformat="%Y-%m")
-    #     area_bt.update_xaxes(title_text="날짜")
-    #     st.plotly_chart(area_bt, use_container_width=True)
-    # new_col5, new_col6 = st.columns([2, 2], gap="large")
-    # with new_col5:
-    #     st.subheader(f"{month}월 연료별 신차등록 점유율")
-    #     df_fu = new_seg[new_seg['EXTRACT_DE'] == '202508'].groupby(['USE_FUEL_NM'])[['CNT']].sum().reset_index()
-    #     new_fu = px.pie(df_fu, values="CNT", names="USE_FUEL_NM", hole=.3, category_orders={'USE_FUEL_NM': fu_order})
-    #     st.plotly_chart(new_fu, use_container_width=True)
-    # with new_col6:
-    #     st.subheader(f"{year}년 월별 연료별 누적 영역 그래프")
-    #     stacked_area = new_seg.groupby(['EXTRACT_DE', 'USE_FUEL_NM'])[['CNT']].sum().reset_index()
-    #     stacked_area["EXTRACT_DE"] = pd.to_datetime(
-    #         stacked_area["EXTRACT_DE"].astype(str), format="%Y%m"
-    #     )
-    #     area_fu = px.area(stacked_area, x="EXTRACT_DE", y="CNT", color="USE_FUEL_NM",
-    #                       pattern_shape="USE_FUEL_NM",
-    #                       category_orders={"USE_FUEL_NM": fu_order})
-    #     area_fu.update_xaxes(dtick="M1", tickformat="%Y-%m")
-    #     area_fu.update_xaxes(title_text="날짜")
-    #     st.plotly_chart(area_fu, use_container_width=True)
 
 
 with tab2:
@@ -258,17 +224,27 @@ with tab2:
 
     st.plotly_chart(fig2, use_container_width=True)
 
+    segment = st.selectbox("세부 구분", seg, key= "used")
     used_col1, used_col2 = st.columns([2, 2], gap="large")
     with used_col1:
-        st.subheader("2025년 8월 차급별 이전등록 점유율")
+        st.subheader(f"{month}월 {segment}별 이전등록 점유율")
+        df_us = used_seg[used_seg['EXTRACT_DE'] == '202508'].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        us_plot = px.pie(df_us, values="CNT", names=seg_dict[segment][0], hole=.3, category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
+        st.plotly_chart(us_plot, use_container_width=True)
     with used_col2:
-        st.subheader("2025년 월별 차급 누적 영역 그래프")
+        st.subheader(f"{year}년 {segment}별 누적 영역 그래프")
+        stacked_area = used_seg.groupby(['EXTRACT_DE', seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        stacked_area["EXTRACT_DE"] = pd.to_datetime(
+            stacked_area["EXTRACT_DE"].astype(str), format="%Y%m"
+        )
+        area_sz = px.area(stacked_area, x="EXTRACT_DE", y="CNT", color=seg_dict[segment][0],
+                      pattern_shape=seg_dict[segment][0],
+                      category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
+        area_sz.update_xaxes(dtick="M1", tickformat="%Y-%m")
+        area_sz.update_xaxes(title_text="날짜")
+        st.plotly_chart(area_sz, use_container_width=True)
 
-    used_col3, used_col4 = st.columns([2, 2], gap="large")
-    with used_col3:
-        st.subheader("2025년 8월 외형별 이전등록 점유율")
-    with used_col4:
-        st.subheader("2025년 월별 외형급 누적 영역 그래프")
+
 with tab3:
     st.subheader('말소등록 추이 및 전년 비교')
     st.markdown("- 폐차, 수출예정 대상 집계")
@@ -305,7 +281,6 @@ with tab3:
             ),
             secondary_y=False
         )
-
     # 축 설정
     fig3.update_layout(
         hovermode="x unified",
@@ -317,17 +292,28 @@ with tab3:
 
     st.plotly_chart(fig3, use_container_width=True)
 
+    segment = st.selectbox("세부 구분", seg, key="ersr")
     er_col1, er_col2 = st.columns([2, 2], gap="large")
     with er_col1:
-        st.subheader("2025년 8월 차급별 말소등록 점유율")
+        st.subheader(f"{month}월 {segment}별 말소등록 점유율")
+        df_er = er_seg[er_seg['EXTRACT_DE'] == '202508'].groupby([seg_dict[segment][0]])[
+            ['CNT']].sum().reset_index()
+        er_plot = px.pie(df_er, values="CNT", names=seg_dict[segment][0], hole=.3,
+                         category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
+        st.plotly_chart(er_plot, use_container_width=True)
     with er_col2:
-        st.subheader("2025년 월별 차급 누적 영역 그래프")
+        st.subheader(f"{year}년 {segment}별 누적 영역 그래프")
+        stacked_area = er_seg.groupby(['EXTRACT_DE', seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        stacked_area["EXTRACT_DE"] = pd.to_datetime(
+            stacked_area["EXTRACT_DE"].astype(str), format="%Y%m"
+        )
+        area_sz = px.area(stacked_area, x="EXTRACT_DE", y="CNT", color=seg_dict[segment][0],
+                          pattern_shape=seg_dict[segment][0],
+                          category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
+        area_sz.update_xaxes(dtick="M1", tickformat="%Y-%m")
+        area_sz.update_xaxes(title_text="날짜")
+        st.plotly_chart(area_sz, use_container_width=True)
 
-    er_col3, er_col4 = st.columns([2, 2], gap="large")
-    with er_col3:
-        st.subheader("2025년 8월 외형별 말소등록 점유율")
-    with er_col4:
-        st.subheader("2025년 월별 외형급 누적 영역 그래프")
 
 
 

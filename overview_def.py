@@ -63,7 +63,6 @@ def plot_top_bottom(tbl, dim_col, topn=5, title_prefix="증감률"):
         title=f"{title_prefix} 증가 TOP {topn}  (기준: {tbl['BASE_MONTH'][0]} / 비교: {tbl['COMP_MONTH'][0]})"
     )
     fig_up.update_traces(textposition="outside")
-    fig_up.update_yaxes(title_text=dim_col)
     fig_up.update_layout(xaxis_title="증감률(%)", yaxis_title=dim_col, showlegend=False)
 
     # 감소 BOTTOM
@@ -77,7 +76,6 @@ def plot_top_bottom(tbl, dim_col, topn=5, title_prefix="증감률"):
         title=f"{title_prefix} 감소 BOTTOM {topn}  (기준: {tbl['BASE_MONTH'][0]} / 비교: {tbl['COMP_MONTH'][0]})"
     )
     fig_dn.update_traces(textposition="outside")
-    fig_dn.update_yaxes(title_text=dim_col)
     fig_dn.update_layout(xaxis_title="증감률(%)", yaxis_title=dim_col, showlegend=False)
 
     return fig_up, fig_dn

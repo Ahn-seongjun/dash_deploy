@@ -6,22 +6,38 @@ import plotly.graph_objects as go
 import warnings
 warnings.filterwarnings('ignore')
 import base64
-from datetime import datetime,timedelta
+from datetime import datetime
 from dateutil.relativedelta import *
+import overview_def as od
 
 st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
-# df_bar = pd.read_csv('./data/simple_monthly_cnt.csv')
-df = pd.read_csv('./data/202508monthly_cnt.csv', index_col=0)
+
 new_top = pd.read_excel('./data/2508_top.xlsx', sheet_name='신규')
 use_top = pd.read_excel('./data/2508_top.xlsx', sheet_name='이전')
 ersr_top = pd.read_excel('./data/2508_top.xlsx', sheet_name='말소')
-mon_cnt = pd.read_csv('./data/24_25_moncnt.csv', index_col=0)
+
+new_mon_cnt = pd.read_excel('./data/24_25_moncnt.xlsx', sheet_name='신규')
+used_mon_cnt = pd.read_excel('./data/24_25_moncnt.xlsx', sheet_name='이전')
+er_mon_cnt = pd.read_excel('./data/24_25_moncnt.xlsx', sheet_name='말소')
+
 new_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='신규')
 new_seg['EXTRACT_DE'] = new_seg['EXTRACT_DE'].astype('str')
 used_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='이전')
 used_seg['EXTRACT_DE'] = used_seg['EXTRACT_DE'].astype('str')
 er_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='말소')
 er_seg['EXTRACT_DE'] = er_seg['EXTRACT_DE'].astype('str')
+
+# 슬라이싱
+mon_new = new_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
+mon_used = used_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
+mon_er = er_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
+this_new = mon_new[(mon_new['YEA']==2025) & (mon_new['MON'] ==8)]['CNT'].values[0]
+this_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON'] ==8)]['CNT'].values[0]
+this_er = mon_er[(mon_er['YEA']==2025) & (mon_er['MON'] ==8)]['CNT'].values[0]
+last_new = mon_new[(mon_new['YEA']==2025) & (mon_new['MON'] ==7)]['CNT'].values[0]
+last_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON'] ==7)]['CNT'].values[0]
+last_er = mon_er[(mon_er['YEA']==2025) & (mon_er['MON'] ==7)]['CNT'].values[0]
+
 # 전년, 전월대비 계산
 def cal(x,y):
     result = round((x-y)/y,2)
@@ -40,13 +56,14 @@ with st.sidebar:
 
 st.header(f"Summary")
 st.markdown(f"## {year}년 {month}월 기준 자동차 등록 요약")
-cal(df['NEW_CNT'][202508],df['NEW_CNT'][202507])
 st.markdown('### 월간 승용차 등록 집계',help = '전월대비 증감')
 
+
+
 new, used, ersr, op = st.columns(4)
-new.metric("신규 등록", format(df['NEW_CNT'][202508],','),f"{cal(df['NEW_CNT'][202508], df['NEW_CNT'][202507])}%",border = True)
-used.metric("이전 등록", format(df['USED_CNT'][202508],','),f"{cal(df['USED_CNT'][202508], df['USED_CNT'][202507])}%",border = True)
-ersr.metric("말소 등록", format(df['ERSR_CNT'][202508],','),f"{cal(df['ERSR_CNT'][202508], df['ERSR_CNT'][202507])}%",border = True)
+new.metric("신규 등록", format(this_new,','),f"{cal(this_new, last_new)}%",border = True)
+used.metric("이전 등록", format(this_used,','),f"{cal(this_used, last_used)}%",border = True)
+ersr.metric("말소 등록", format(this_er,','),f"{cal(this_er, last_er)}%",border = True)
 op.metric("운행 등록", format(int(26434579),','),f"{cal(26434579, 26425398)}%",border = True)
 
 st.markdown(
@@ -110,9 +127,8 @@ with tab1:
     st.subheader('신규등록 추이 및 전년 비교')
     st.markdown("- 이삿짐, 부활차 제외")
     # 전년대비 산출
-    mon_cnt['MON'] = mon_cnt['MON'].astype(int)
-    mon_cnt['YEA'] = mon_cnt['YEA'].astype(int)
-    pvt_new = mon_cnt.pivot_table(index='MON', columns='YEA', values='NEW_CNT', aggfunc='sum')
+
+    pvt_new = mon_new.pivot_table(index='MON', columns='YEA', values='CNT', aggfunc='sum')
     latest_year = pvt_new.columns.max()
     prev_year = latest_year - 1
     yoy_new = (pvt_new[latest_year] - pvt_new[prev_year]) / pvt_new[prev_year] * 100
@@ -132,12 +148,12 @@ with tab1:
         secondary_y=True
     )
     line_colors = ["#1e3a8a","#00dac4"]
-    for i, year in enumerate(sorted(mon_cnt['YEA'].unique())):
-        df_year = mon_cnt[mon_cnt['YEA'] == year]
+    for i, year in enumerate(sorted(mon_new['YEA'].unique())):
+        df_year = mon_new[mon_new['YEA'] == year]
         fig1.add_trace(
             go.Scatter(
                 x=df_year['MON'],
-                y=df_year['NEW_CNT'],
+                y=df_year['CNT'],
                 mode='lines+markers',
                 name=f"{year} 등록대수",
                 line=dict(width=3, color=line_colors[i % len(line_colors)]),
@@ -177,7 +193,6 @@ with tab1:
         area_sz.update_xaxes(title_text="날짜")
         st.plotly_chart(area_sz, use_container_width=True)
 
-
 with tab2:
     col1, col2 = st.columns([2, 2], gap="large")
     with col1:
@@ -197,7 +212,7 @@ with tab2:
         st.dataframe(im_top, use_container_width=True)
     st.subheader('이전등록 실거래 추이 및 전년 비교')
     st.markdown("- 실거래(매도, 알선, 개인거래) 대상 집계")
-    pvt_used = mon_cnt.pivot_table(index='MON', columns='YEA', values='USED_CNT', aggfunc='sum')
+    pvt_used = mon_used.pivot_table(index='MON', columns='YEA', values='CNT', aggfunc='sum')
     latest_year = pvt_used.columns.max()
     prev_year = latest_year - 1
     yoy_used = (pvt_used[latest_year] - pvt_used[prev_year]) / pvt_used[prev_year] * 100
@@ -217,12 +232,12 @@ with tab2:
         secondary_y=True
     )
     line_colors = ["#1e3a8a", "#00dac4"]
-    for i, year in enumerate(sorted(mon_cnt['YEA'].unique())):
-        df_year = mon_cnt[mon_cnt['YEA'] == year]
+    for i, year in enumerate(sorted(mon_used['YEA'].unique())):
+        df_year = mon_used[mon_used['YEA'] == year]
         fig2.add_trace(
             go.Scatter(
                 x=df_year['MON'],
-                y=df_year['USED_CNT'],
+                y=df_year['CNT'],
                 mode='lines+markers',
                 name=f"{year} 등록대수",
                 line=dict(width=3, color=line_colors[i % len(line_colors)]),
@@ -286,7 +301,7 @@ with tab3:
         st.dataframe(im_top, use_container_width=True)
     st.subheader('말소등록 추이 및 전년 비교')
     st.markdown("- 폐차, 수출예정 대상 집계")
-    pvt_er = mon_cnt.pivot_table(index='MON', columns='YEA', values='ER_CNT', aggfunc='sum')
+    pvt_er = mon_er.pivot_table(index='MON', columns='YEA', values='CNT', aggfunc='sum')
     latest_year = pvt_er.columns.max()
     prev_year = latest_year - 1
     yoy_er = (pvt_er[latest_year] - pvt_er[prev_year]) / pvt_er[prev_year] * 100
@@ -306,12 +321,12 @@ with tab3:
         secondary_y=True
     )
     line_colors = ["#1e3a8a", "#00dac4"]
-    for i, year in enumerate(sorted(mon_cnt['YEA'].unique())):
-        df_year = mon_cnt[mon_cnt['YEA'] == year]
+    for i, year in enumerate(sorted(mon_er['YEA'].unique())):
+        df_year = mon_er[mon_er['YEA'] == year]
         fig3.add_trace(
             go.Scatter(
                 x=df_year['MON'],
-                y=df_year['ER_CNT'],
+                y=df_year['CNT'],
                 mode='lines+markers',
                 name=f"{year} 등록대수",
                 line=dict(width=3, color=line_colors[i % len(line_colors)]),
@@ -352,10 +367,36 @@ with tab3:
         area_sz.update_xaxes(title_text="날짜")
         st.plotly_chart(area_sz, use_container_width=True)
 
+st.markdown("### 분석 대상 컬럼 선택")
+reg = ['신규','이전','말소']
+feat = ['브랜드', '모델', '차급', '외형', '연료']
+feat_dict = {'브랜드':'ORG_CAR_MAKER_KOR',
+             '모델':'CAR_MOEL_DT',
+             '차급':'CAR_SZ',
+             '외형':'CAR_BT',
+             '연료':'USE_FUEL_NM'}
+with st.form(key="my_form"):
+    reg_kind = st.selectbox("데이터 선택",reg,key = "reg_kind")
+    dim_col = st.selectbox("비교 기준 선택", feat, key="feat")
+    submit_button = st.form_submit_button(label="Submit")
+if reg_kind == '신규':
+    df_detail = new_mon_cnt.copy()
+elif reg_kind == '이전':
+    df_detail = used_mon_cnt.copy()
+else :
+    df_detail = er_mon_cnt.copy()
+base_month = month_ago.strftime('%Y-%m')
 
+tbl_mom = od.compute_change_table(df_detail, feat_dict[dim_col], base_month, mode="MoM")
 
+fig_up_mom, fig_dn_mom = od.plot_top_bottom(tbl_mom, feat_dict[dim_col], topn=5, title_prefix="MoM")
+st.plotly_chart(fig_up_mom, use_container_width=True)
+st.plotly_chart(fig_dn_mom, use_container_width=True)
 
-
+tbl_yoy = od.compute_change_table(df_detail, feat_dict[dim_col], base_month, mode="YoY")
+fig_up_yoy, fig_dn_yoy = od.plot_top_bottom(tbl_yoy, feat_dict[dim_col], topn=5, title_prefix="YoY")
+st.plotly_chart(fig_up_yoy, use_container_width=True)
+st.plotly_chart(fig_dn_yoy, use_container_width=True)
 
 with open('./assets/carcharts.png', "rb") as f:
     data = f.read()
@@ -383,7 +424,3 @@ text-align: center;
 """
 
 st.markdown(footer,unsafe_allow_html=True)
-
-# streamlit run summary.py
-# https://data-science-at-swast-handover-poc-handover-yfa2kz.streamlit.app/
-# 위에 이거 함 드가서 코드 훔쳐오자

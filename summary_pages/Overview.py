@@ -12,7 +12,9 @@ from dateutil.relativedelta import *
 st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
 # df_bar = pd.read_csv('./data/simple_monthly_cnt.csv')
 df = pd.read_csv('./data/202508monthly_cnt.csv', index_col=0)
-top = pd.read_csv('./data/202508_top.csv', index_col=0)
+new_top = pd.read_excel('./data/2508_top.xlsx', sheet_name='신규')
+use_top = pd.read_excel('./data/2508_top.xlsx', sheet_name='이전')
+ersr_top = pd.read_excel('./data/2508_top.xlsx', sheet_name='말소')
 mon_cnt = pd.read_csv('./data/24_25_moncnt.csv', index_col=0)
 new_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='신규')
 new_seg['EXTRACT_DE'] = new_seg['EXTRACT_DE'].astype('str')
@@ -47,31 +49,13 @@ used.metric("이전 등록", format(df['USED_CNT'][202508],','),f"{cal(df['USED_
 ersr.metric("말소 등록", format(df['ERSR_CNT'][202508],','),f"{cal(df['ERSR_CNT'][202508], df['ERSR_CNT'][202507])}%",border = True)
 op.metric("운행 등록", format(int(26434579),','),f"{cal(26434579, 26425398)}%",border = True)
 
-col1, col2 = st.columns([2,2], gap="large")
-with col1:
-    st.subheader('국산 모델 TOP 10')
-    na_top = top[top['CL_HMMD_IMP_SE_NM']=='국산'].iloc[:,:4]
-    na_top.rename(columns={'RN': '순위', 'ORG_CAR_MAKER_KOR': '브랜드', 'CAR_MOEL_DT': '모델', 'CNT': '대수'}, inplace=True)
-    na_top = na_top.set_index("순위")
-    na_top["대수"] = na_top["대수"].map("{:,}".format)
-    st.dataframe(na_top, use_container_width=True)
-
-
-with col2:
-    st.subheader('수입 모델 TOP 10')
-    im_top = top[top['CL_HMMD_IMP_SE_NM'] == '수입'].iloc[:,:4]
-    im_top.rename(columns={'RN': '순위', 'ORG_CAR_MAKER_KOR': '브랜드', 'CAR_MOEL_DT': '모델', 'CNT': '대수'}, inplace=True)
-    im_top = im_top.set_index("순위")
-    im_top["대수"] = im_top["대수"].map("{:,}".format)
-    st.dataframe(im_top, use_container_width=True)
-
 st.markdown(
     """
     <style>
     .stTabs [role="tablist"] {
         gap: 6px;
     }
-    
+
     .stTabs [data-baseweb="tab"],
     .stTabs [data-baseweb="tab"] > div,
     .stTabs [data-baseweb="tab"] p,
@@ -82,21 +66,22 @@ st.markdown(
         color: #333333 !important;
         padding: 8px 14px !important;
     }
-    
+
     .stTabs [data-baseweb="tab"][aria-selected="true"],
     .stTabs button[role="tab"][aria-selected="true"] {
         color: #ffffff !important;
         background-color: #00dac4 !important;
         border-radius: 8px 8px 0 0 !important;
     }
-    
+
     .stTabs [data-baseweb="tab"]:hover,
     .stTabs button[role="tab"]:hover {
         background-color: #e9f2fb !important;
     }
     </style>
     """, unsafe_allow_html=True)
-tab1, tab2, tab3 = st.tabs(['신규','이전','말소'])
+tab1, tab2, tab3 = st.tabs(['신규', '이전', '말소'])
+
 sz_order = ['소형', '경형', '준중형','중형','준대형','대형']
 bt_order = ['SUV','세단','RV','해치백','픽업트럭','컨버터블','쿠페','왜건']
 fu_order = ['휘발유','경유','LPG','하이브리드','전기','수소']
@@ -105,6 +90,23 @@ seg_dict = {'차급':['CAR_SZ',sz_order],
             '외형':['CAR_BT',bt_order],
             '연료':['USE_FUEL_NM',fu_order]}
 with tab1:
+    col1, col2 = st.columns([2, 2], gap="large")
+    with col1:
+        st.subheader('국산 모델 TOP 10')
+        na_top = new_top[new_top['CL_HMMD_IMP_SE_NM'] == '국산'].iloc[:, :4]
+        na_top.rename(columns={'RN': '순위', 'ORG_CAR_MAKER_KOR': '브랜드', 'CAR_MOEL_DT': '모델', 'CNT': '대수'}, inplace=True)
+        na_top = na_top.set_index("순위")
+        na_top["대수"] = na_top["대수"].map("{:,}".format)
+        st.dataframe(na_top, use_container_width=True)
+
+    with col2:
+        st.subheader('수입 모델 TOP 10')
+        im_top = new_top[new_top['CL_HMMD_IMP_SE_NM'] == '수입'].iloc[:, :4]
+        im_top.rename(columns={'RN': '순위', 'ORG_CAR_MAKER_KOR': '브랜드', 'CAR_MOEL_DT': '모델', 'CNT': '대수'}, inplace=True)
+        im_top = im_top.set_index("순위")
+        im_top["대수"] = im_top["대수"].map("{:,}".format)
+        st.dataframe(im_top, use_container_width=True)
+
     st.subheader('신규등록 추이 및 전년 비교')
     st.markdown("- 이삿짐, 부활차 제외")
     # 전년대비 산출
@@ -177,6 +179,22 @@ with tab1:
 
 
 with tab2:
+    col1, col2 = st.columns([2, 2], gap="large")
+    with col1:
+        st.subheader('국산 모델 TOP 10')
+        na_top = use_top[use_top['CL_HMMD_IMP_SE_NM'] == '국산'].iloc[:, :5]
+        na_top.rename(columns={'RN': '순위', 'ORG_CAR_MAKER_KOR': '브랜드', 'CAR_MOEL_DT': '모델','CAR_MODEL_KOR':'상세모델', 'CNT': '대수'}, inplace=True)
+        na_top = na_top.set_index("순위")
+        na_top["대수"] = na_top["대수"].map("{:,}".format)
+        st.dataframe(na_top, use_container_width=True)
+
+    with col2:
+        st.subheader('수입 모델 TOP 10')
+        im_top = use_top[use_top['CL_HMMD_IMP_SE_NM'] == '수입'].iloc[:, :5]
+        im_top.rename(columns={'RN': '순위', 'ORG_CAR_MAKER_KOR': '브랜드', 'CAR_MOEL_DT': '모델','CAR_MODEL_KOR':'상세모델', 'CNT': '대수'}, inplace=True)
+        im_top = im_top.set_index("순위")
+        im_top["대수"] = im_top["대수"].map("{:,}".format)
+        st.dataframe(im_top, use_container_width=True)
     st.subheader('이전등록 실거래 추이 및 전년 비교')
     st.markdown("- 실거래(매도, 알선, 개인거래) 대상 집계")
     pvt_used = mon_cnt.pivot_table(index='MON', columns='YEA', values='USED_CNT', aggfunc='sum')
@@ -246,6 +264,26 @@ with tab2:
 
 
 with tab3:
+    col1, col2 = st.columns([2, 2], gap="large")
+    with col1:
+        st.subheader('국산 모델 TOP 10')
+        na_top = ersr_top[ersr_top['CL_HMMD_IMP_SE_NM'] == '국산'].iloc[:, :4]
+        na_top.rename(
+            columns={'RN': '순위', 'ORG_CAR_MAKER_KOR': '브랜드', 'CAR_MOEL_DT': '모델', 'CNT': '대수'},
+            inplace=True)
+        na_top = na_top.set_index("순위")
+        na_top["대수"] = na_top["대수"].map("{:,}".format)
+        st.dataframe(na_top, use_container_width=True)
+
+    with col2:
+        st.subheader('수입 모델 TOP 10')
+        im_top = ersr_top[ersr_top['CL_HMMD_IMP_SE_NM'] == '수입'].iloc[:, :4]
+        im_top.rename(
+            columns={'RN': '순위', 'ORG_CAR_MAKER_KOR': '브랜드', 'CAR_MOEL_DT': '모델', 'CNT': '대수'},
+            inplace=True)
+        im_top = im_top.set_index("순위")
+        im_top["대수"] = im_top["대수"].map("{:,}".format)
+        st.dataframe(im_top, use_container_width=True)
     st.subheader('말소등록 추이 및 전년 비교')
     st.markdown("- 폐차, 수출예정 대상 집계")
     pvt_er = mon_cnt.pivot_table(index='MON', columns='YEA', values='ER_CNT', aggfunc='sum')

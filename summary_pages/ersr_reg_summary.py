@@ -6,11 +6,32 @@ warnings.filterwarnings('ignore')
 import base64
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from pathlib import Path
+
+@st.cache_data(ttl=3600, show_spinner="말소등록 데이터 불러오는 중...")
+def load_csv(path: Path, dtype=None, parse_dates=None):
+    return pd.read_csv(path, dtype=dtype, parse_dates=parse_dates)
+
+@st.cache_data(ttl=3600)
+def get_ersr_data(base_dir="data/ersr"):
+    base = Path(base_dir)
+    df = load_csv(base / "2024년 말소데이터.csv")
+    return {
+        "monthly": df,
+    }
+
+# --- 스트림릿 UI 시작 ---
+st.set_page_config(page_title="말소 등록 요약", page_icon="🗑️", layout="wide")
+st.title("말소 등록 요약")
+
+data = get_ersr_data(base_dir="data")
+df   = data["monthly"]
 
 
-st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
 
-df = pd.read_csv('./data/2024년 말소데이터.csv')
+# st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
+#
+# df = pd.read_csv('./data/2024년 말소데이터.csv')
 df['val'] = '1'
 df['val'] = df['val'].astype('int')
 df['EXTRACT_DE'] = df['EXTRACT_DE'].astype('str')

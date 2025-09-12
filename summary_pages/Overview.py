@@ -6,26 +6,41 @@ import plotly.graph_objects as go
 import warnings
 warnings.filterwarnings('ignore')
 import base64
+import time
 from datetime import datetime
 from dateutil.relativedelta import *
 import overview_def as od
 
 st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
 
-new_top = pd.read_excel('./data/2508_top.xlsx', sheet_name='신규')
-use_top = pd.read_excel('./data/2508_top.xlsx', sheet_name='이전')
-ersr_top = pd.read_excel('./data/2508_top.xlsx', sheet_name='말소')
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_workbook(path: str, sheets: list[str] | None = None) -> dict[str, pd.DataFrame]:
+    dfs = pd.read_excel(path, sheet_name=sheets, engine="openpyxl")
+    if isinstance(dfs, pd.DataFrame):
+        dfs = {sheets if isinstance(sheets, str) else "Sheet1": dfs}
+    return dfs
 
-new_mon_cnt = pd.read_excel('./data/24_25_moncnt.xlsx', sheet_name='신규')
-used_mon_cnt = pd.read_excel('./data/24_25_moncnt.xlsx', sheet_name='이전')
-er_mon_cnt = pd.read_excel('./data/24_25_moncnt.xlsx', sheet_name='말소')
+with st.spinner("🚗 데이터 엔진 예열 중…"):
+    top_wb = load_workbook("./data/2508_top.xlsx", sheets=["신규","이전","말소"])
+    new_top   = top_wb["신규"]
+    use_top   = top_wb["이전"]
+    ersr_top  = top_wb["말소"]
 
-new_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='신규')
-new_seg['EXTRACT_DE'] = new_seg['EXTRACT_DE'].astype('str')
-used_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='이전')
-used_seg['EXTRACT_DE'] = used_seg['EXTRACT_DE'].astype('str')
-er_seg = pd.read_excel('./data/2508차급외형연료.xlsx',sheet_name='말소')
-er_seg['EXTRACT_DE'] = er_seg['EXTRACT_DE'].astype('str')
+    mon_wb = load_workbook("./data/24_25_moncnt.xlsx", sheets=["신규","이전","말소"])
+    new_mon_cnt  = mon_wb["신규"]
+    used_mon_cnt = mon_wb["이전"]
+    er_mon_cnt   = mon_wb["말소"]
+
+    seg_wb = load_workbook("./data/2508차급외형연료.xlsx", sheets=["신규","이전","말소"])
+    new_seg  = seg_wb["신규"].copy()
+    used_seg = seg_wb["이전"].copy()
+    er_seg   = seg_wb["말소"].copy()
+
+for df in (new_seg, used_seg, er_seg):
+    # EXTRACT_DE: YYYYMM → 문자열/날짜 중 하나로 통일
+    df["EXTRACT_DE"] = df["EXTRACT_DE"].astype(str)
+    # 시각화 축 표시를 YYYY-MM로 쓰려면:
+    #df["YYYYMM"] = df["EXTRACT_DE"].dt.strftime("%Y-%m")
 
 # 슬라이싱
 mon_new = new_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()

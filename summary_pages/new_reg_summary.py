@@ -4,14 +4,38 @@ import plotly.express as px
 import warnings
 warnings.filterwarnings('ignore')
 import base64
+from pathlib import Path
 
+# 파일 → DataFrame 캐시 (1시간)
+@st.cache_data(ttl=3600, show_spinner="신규등록 데이터 불러오는 중...")
+def load_csv(path: Path, dtype=None, parse_dates=None):
+    return pd.read_csv(path, dtype=dtype, parse_dates=parse_dates)
 
+@st.cache_data(ttl=3600)
+def get_newreg_data(base_dir="data/new_reg"):
+    base = Path(base_dir)
+    df_monthly = load_csv(base / "simple_monthly_cnt.csv")
+    df_cum     = load_csv(base / "12-24누적 용도별 등록대수.csv")
+    df_dim     = load_csv(base / "2024년 누적 데이터.csv")
 
-st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
-df_bar = pd.read_csv('./data/simple_monthly_cnt.csv', index_col=0)
-df = pd.read_csv('./data/2024년 누적 데이터.csv', index_col=0)
-df_use = pd.read_csv('./data/12-24누적 용도별 등록대수.csv')
+    return {
+        "monthly": df_monthly,
+        "cum": df_cum,
+        "dim": df_dim,
+    }
 
+# --- 스트림릿 UI 시작 ---
+st.set_page_config(page_title="신규 등록 요약", page_icon="🚗", layout="wide")
+st.title("신규 등록 요약")
+data = get_newreg_data(base_dir="data/")  # <- 프로젝트 구조에 맞게 경로 조정
+df_bar = data["monthly"]
+df_use     = data["cum"]
+df     = data["dim"]
+# st.set_page_config(page_title= "[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
+# df_bar = pd.read_csv('./data/simple_monthly_cnt.csv', index_col=0)
+# df = pd.read_csv('./data/2024년 누적 데이터.csv', index_col=0)
+# df_use = pd.read_csv('./data/12-24누적 용도별 등록대수.csv')
+#print(df_bar)
 # 단순 대수 전처리
 df_bar = df_bar.reset_index()
 df_bar['date'] = df_bar['date'].astype('str')

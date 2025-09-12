@@ -4,12 +4,6 @@ import pandas as pd
 import os
 
 # 페이지 설정
-st.set_page_config(
-    page_title="Chat Bot",
-    initial_sidebar_state="expanded",
-    layout="wide"
-)
-
 # 사이드바 - API 키 입력
 with st.sidebar:
     openai_api_key = st.text_input("OpenAI API Key", key="chatbot_api_key", type="password")

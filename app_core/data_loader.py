@@ -72,3 +72,9 @@ def get_newreg_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
         "cum":     load_csv(paths["cum"]),
         "dim":     load_csv(paths["dim"]),
     }
+
+@st.cache_data(ttl=3600, show_spinner="말소등록 데이터 불러오는 중...")
+def get_ersr_data(base_dir: Optional[str] = "data/ersr") -> Dict[str, pd.DataFrame]:
+    base = Path(base_dir) if base_dir else Path("./data/ersr")
+    df = load_csv(base / "2024년 말소데이터.csv")
+    return {"monthly": df}

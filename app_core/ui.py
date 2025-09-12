@@ -1,63 +1,47 @@
-from typing import Dict, Any, Tuple, Iterable, Optional
+# app_core/ui.py
+from __future__ import annotations
 import streamlit as st
 
-def section(title: str, subtitle: Optional[str] = None):
-    st.markdown(f"### {title}")
-    if subtitle:
-        st.caption(subtitle)
+def apply_tab_style():
+    """탭 시각 스타일 공통 적용 (Overview에서 쓰던 CSS 그대로)."""
+    st.markdown(
+        """
+        <style>
+        .stTabs [role="tablist"] { gap: 6px; }
 
-def columns(n_or_weights: Iterable[int]) -> Tuple[st.delta_generator.DeltaGenerator, ...]:
-    return st.columns(n_or_weights)
+        .stTabs [data-baseweb="tab"],
+        .stTabs [data-baseweb="tab"] > div,
+        .stTabs [data-baseweb="tab"] p,
+        .stTabs button[role="tab"] {
+            font-size: 18px !important;
+            font-weight: 700 !important;
+            font-family: 'Arial', sans-serif !important;
+            color: #333333 !important;
+            padding: 8px 14px !important;
+        }
 
-def sidebar_filters(schema: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    schema 예:
-    {
-      "brand": {"type":"multiselect","label":"브랜드","options":[...], "default": None},
-      "fuel":  {"type":"selectbox","label":"연료","options":["전체", ...], "default":"전체"},
-    }
-    """
-    out = {}
-    with st.sidebar:
-        st.markdown("#### 필터")
-        for key, cfg in schema.items():
-            typ = cfg["type"]
-            label = cfg.get("label", key)
-            options = cfg.get("options", [])
-            default = cfg.get("default", None)
-            if typ == "multiselect":
-                val = st.multiselect(label, options, default=default)
-            elif typ == "selectbox":
-                val = st.selectbox(label, options, index=(options.index(default) if default in options else 0))
-            elif typ == "radio":
-                val = st.radio(label, options, index=(options.index(default) if default in options else 0), horizontal=True)
-            else:
-                val = None
-            out[key] = val
-    return out
+        .stTabs [data-baseweb="tab"][aria-selected="true"],
+        .stTabs button[role="tab"][aria-selected="true"] {
+            color: #ffffff !important;
+            background-color: #00dac4 !important;
+            border-radius: 8px 8px 0 0 !important;
+        }
 
-def compare_form(schema: Dict[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """
-    Overview 비교/증감 분석 폼 패턴
-    schema 예:
-    {"target": {"type":"radio","label":"대상","options":["신규","이전","말소"],"default":"신규"},
-     "key": {"type":"selectbox","label":"기준","options":["브랜드","모델","연료"],"default":"브랜드"}}
-    """
-    with st.form(key="compare_form"):
-        st.markdown("#### 비교/증감 분석")
-        result = {}
-        for key, cfg in schema.items():
-            typ = cfg["type"]
-            label = cfg.get("label", key)
-            options = cfg.get("options", [])
-            default = cfg.get("default", None)
-            if typ == "selectbox":
-                result[key] = st.selectbox(label, options, index=(options.index(default) if default in options else 0))
-            elif typ == "radio":
-                result[key] = st.radio(label, options, index=(options.index(default) if default in options else 0), horizontal=True)
-            else:
-                result[key] = None
-        submitted = st.form_submit_button("분석 실행")
-        if submitted:
-            return result
-    return None
+        .stTabs [data-baseweb="tab"]:hover,
+        .stTabs button[role="tab"]:hover {
+            background-color: #e9f2fb !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def sidebar_links():
+    """사이드바 하단 공통 링크 영역."""
+    st.write("CARISYOU DATALAB")
+    st.link_button("CarCharts Free", "https://carcharts-free.carisyou.net/")
+
+def sidebar_filters_applied():
+    """필터 적용시 공통 피드백(선택 사용)."""
+    st.success("Filter Applied!")
+    #st.balloons()

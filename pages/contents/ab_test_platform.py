@@ -5,8 +5,6 @@ import scipy.stats
 from scipy.stats import norm
 import altair as alt
 
-st.set_page_config(
-    page_title="A/B Testing App", initial_sidebar_state="expanded", layout="wide")
 
 def conversion_rate(conversions, visitors):
     return (conversions / visitors) * 100

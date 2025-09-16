@@ -290,17 +290,15 @@ else:
 base_month = month_ago.strftime('%Y-%m')
 
 # ✅ overview_def 사용 복구
+
 tbl_mom = od.compute_change_table(df_detail, feat_dict[dim_col], base_month, mode="MoM")
-fig_up_mom, fig_dn_mom = od.plot_top_bottom(tbl_mom, feat_dict[dim_col], topn=5, title_prefix="MoM")
-fig_up_mom.update_yaxes(title_text=dim_col)
-fig_dn_mom.update_yaxes(title_text=dim_col)
-st.plotly_chart(fig_up_mom, use_container_width=True)
-st.plotly_chart(fig_dn_mom, use_container_width=True)
+fig_mom = od.plot_top_bottom_toggle(tbl_mom, feat_dict[dim_col], topn=5, title_prefix="MoM", show_periods=False)
+fig_mom.update_yaxes(title_text=dim_col)
+
+st.plotly_chart(fig_mom, use_container_width=True)
 
 tbl_yoy = od.compute_change_table(df_detail, feat_dict[dim_col], base_month, mode="YoY")
-fig_up_yoy, fig_dn_yoy = od.plot_top_bottom(tbl_yoy, feat_dict[dim_col], topn=5, title_prefix="YoY")
-fig_up_yoy.update_yaxes(title_text=dim_col)
-fig_dn_yoy.update_yaxes(title_text=dim_col)
-st.plotly_chart(fig_up_yoy, use_container_width=True)
-st.plotly_chart(fig_dn_yoy, use_container_width=True)
+fig_yoy = od.plot_top_bottom_toggle(tbl_yoy, feat_dict[dim_col], topn=5, title_prefix="YoY", show_periods=False)
+fig_yoy.update_yaxes(title_text=dim_col)
+st.plotly_chart(fig_yoy, use_container_width=True)
 footer.render()

@@ -49,36 +49,89 @@ def color_by_sign(values):
     # +는 연빨강, -는 연파랑 (연한 계열)
     return ["lightcoral" if v >= 0 else "lightskyblue" for v in values]
 
-def plot_top_bottom(tbl, dim_col, topn=5, title_prefix="증감률"):
-    topN = tbl[(tbl["CNT_BASE"] >= 20) & (tbl["CNT_COMP"] >= 20)].nlargest(topn, "CHANGE_PCT").sort_values(by="CHANGE_PCT",ascending=True)
-    botN = tbl[(tbl["CNT_BASE"] >= 20) & (tbl["CNT_COMP"] >= 20)].nsmallest(topn, "CHANGE_PCT").sort_values(by="CHANGE_PCT",ascending=True)
-    # 증가 TOP
-    fig_up = px.bar(
-        topN,
-        x="CHANGE_PCT", y=dim_col,
-        orientation="h",
-        text=round(topN["CHANGE_PCT"],2).astype(str)+"%",
-        color=topN["CHANGE_PCT"],
-        color_discrete_sequence=color_by_sign(topN["CHANGE_PCT"]),
-        title=f"{title_prefix} 증가 TOP {topn}  (기준: {tbl['BASE_MONTH'][0]} / 비교: {tbl['COMP_MONTH'][0]})"
-    )
-    fig_up.update_traces(textposition="outside")
-    fig_up.update_layout(xaxis_title="증감률(%)", showlegend=False)
+def plot_top_bottom_toggle(tbl, dim_col, topn=5, title_prefix="증감률", show_periods=False):
+    """
+    tbl      : compute_change_table 결과
+    dim_col  : 차원 컬럼명
+    topn     : Top/Bottom 개수
+    title_prefix : 타이틀 접두사 (예: 'MoM', 'YoY', '증감률')
+    show_periods : 타이틀에 (YYYY-MM vs YYYY-MM) 표시 여부
+    """
+    # 필터 및 Top/Bottom 선정
+    mask = (tbl["CNT_BASE"] >= 20) & (tbl["CNT_COMP"] >= 20)
+    topN = tbl[mask].nlargest(topn, "CHANGE_PCT").sort_values(by="CHANGE_PCT", ascending=True)
+    botN = tbl[mask].nsmallest(topn, "CHANGE_PCT").sort_values(by="CHANGE_PCT", ascending=True)
 
-    # 감소 BOTTOM
-    fig_dn = px.bar(
-        botN,
-        x="CHANGE_PCT", y=dim_col,
-        orientation="h",
-        text=round(botN["CHANGE_PCT"],2).astype(str)+"%",
-        color=botN["CHANGE_PCT"],
-        color_discrete_sequence=color_by_sign(botN["CHANGE_PCT"]),
-        title=f"{title_prefix} 감소 BOTTOM {topn}  (기준: {tbl['BASE_MONTH'][0]} / 비교: {tbl['COMP_MONTH'][0]})"
-    )
-    fig_dn.update_traces(textposition="outside")
-    fig_dn.update_layout(xaxis_title="증감률(%)", showlegend=False)
+    # 타이틀 suffix
+    if len(tbl) > 0:
+        base = tbl["BASE_MONTH"].iloc[0]
+        comp = tbl["COMP_MONTH"].iloc[0]
+        suffix = f" · {base} vs {comp}" if show_periods else ""
+    else:
+        suffix = ""
 
-    return fig_up, fig_dn
+    # Figure 생성: go.Bar 두 트레이스(증가/감소), 가시성 토글
+    fig = go.Figure()
+
+    # 상위 TOP (초기 visible=True)
+    fig.add_trace(go.Bar(
+        x=topN["CHANGE_PCT"],
+        y=topN[dim_col],
+        orientation="h",
+        text=topN["CHANGE_PCT"].round(2).astype(str) + "%",
+        textposition="outside",
+        marker=dict(color=color_by_sign(topN["CHANGE_PCT"])),
+        name=f"상위 TOP {topn}",
+        visible=True
+    ))
+
+    # 하위 BOTTOM (초기 visible=False)
+    fig.add_trace(go.Bar(
+        x=botN["CHANGE_PCT"],
+        y=botN[dim_col],
+        orientation="h",
+        text=botN["CHANGE_PCT"].round(2).astype(str) + "%",
+        textposition="outside",
+        marker=dict(color=color_by_sign(botN["CHANGE_PCT"])),
+        name=f"<b>감소 BOTTOM {topn}</b>",
+        visible=False
+    ))
+
+    # 공통 레이아웃
+    fig.update_layout(
+        title=f"<b>{title_prefix} 상위 TOP {topn}{suffix}</b>",
+        xaxis_title="증감률(%)",
+        yaxis_title=dim_col,
+        showlegend=False,
+        #margin=dict(t=60, r=20, b=20, l=20),
+        updatemenus=[dict(
+            type="buttons",
+            direction="left",
+            buttons=[
+                dict(
+                    label="상위 TOP",
+                    method="update",
+                    args=[
+                        {"visible": [True, False]},
+                        {"title": f"<b>{title_prefix} 상위 TOP {topn}{suffix}</b>"}
+                    ]
+                ),
+                dict(
+                    label="하위 TOP",
+                    method="update",
+                    args=[
+                        {"visible": [False, True]},
+                        {"title": f"<b>{title_prefix} 하위 TOP {topn}{suffix}</b>"}
+                    ]
+                ),
+            ],
+            pad={"r": 10, "t": 10},
+            showactive=True,
+            x=0.0, xanchor="left",
+            y=1.15, yanchor="top"
+        )],
+    )
+    return fig
 
 def _range_selector_buttons():
     return dict(buttons=list([

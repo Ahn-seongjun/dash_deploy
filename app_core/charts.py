@@ -81,7 +81,7 @@ def plot_top_bottom_toggle(tbl, dim_col, topn=5, title_prefix="증감률", show_
         text=topN["CHANGE_PCT"].round(2).astype(str) + "%",
         textposition="outside",
         marker=dict(color=color_by_sign(topN["CHANGE_PCT"])),
-        name=f"상위 TOP {topn}",
+        hovertemplate='%{y}: %{x:.2f}%<extra></extra>',
         visible=True
     ))
 
@@ -93,7 +93,6 @@ def plot_top_bottom_toggle(tbl, dim_col, topn=5, title_prefix="증감률", show_
         text=botN["CHANGE_PCT"].round(2).astype(str) + "%",
         textposition="outside",
         marker=dict(color=color_by_sign(botN["CHANGE_PCT"])),
-        name=f"<b>감소 BOTTOM {topn}</b>",
         visible=False
     ))
 

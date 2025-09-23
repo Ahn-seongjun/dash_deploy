@@ -16,10 +16,9 @@ data = dl.get_newreg_data(base_dir="data/")
 df_bar = data["monthly"]
 df_use = data["cum"]
 df = data["dim"]
-
 # 원본 전처리 유지
 df_bar = df_bar.reset_index()
-df_bar["date"] = pd.to_datetime(df_bar["date"].astype("str"))
+df_bar["date"] = pd.to_datetime(df_bar["date"], format='%Y%m').astype("str")
 df["EXTRACT_DE"] = df["EXTRACT_DE"].astype("str")
 reg = format(df["CNT"].sum(), ",d")
 

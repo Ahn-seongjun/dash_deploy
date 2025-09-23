@@ -12,7 +12,7 @@ warnings.filterwarnings('ignore')
 import base64
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from nav import render_sidebar_nav
+from app_core.nav import render_sidebar_nav
 render_sidebar_nav()
 # 🔹 공통 로더 사용 (번들러에서만 스피너 1회)
 from app_core import data_loader as dl

@@ -5,7 +5,7 @@ import numpy as np
 import scipy.stats
 from scipy.stats import norm
 import altair as alt
-from nav import render_sidebar_nav
+from app_core.nav import render_sidebar_nav
 render_sidebar_nav()
 
 def conversion_rate(conversions, visitors):

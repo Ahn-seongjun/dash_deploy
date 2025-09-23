@@ -1,5 +1,5 @@
 import streamlit as st
-from nav import render_sidebar_nav
+from app_core.nav import render_sidebar_nav
 
 st.set_page_config(page_title="Log out", layout="wide")
 render_sidebar_nav()

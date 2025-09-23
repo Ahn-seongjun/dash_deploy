@@ -3,7 +3,7 @@ import streamlit as st
 st.set_page_config(page_title="Chatbot", layout="wide", initial_sidebar_state="auto")
 import pandas as pd
 import os
-from nav import render_sidebar_nav
+from app_core.nav import render_sidebar_nav
 render_sidebar_nav()
 # 페이지 설정
 # 사이드바 - API 키 입력

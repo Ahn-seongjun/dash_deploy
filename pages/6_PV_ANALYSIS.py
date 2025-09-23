@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.express as px
 from app_core import footer
 from app_core import ui
-from nav import render_sidebar_nav
+from app_core.nav import render_sidebar_nav
 render_sidebar_nav()
 ci_data = pd.read_csv('./data/CI 전처리 데이터.csv')
 cl_data = pd.read_csv('./data/CL 전처리 데이터.csv')

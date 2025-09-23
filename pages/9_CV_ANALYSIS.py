@@ -6,7 +6,7 @@ import warnings
 warnings.filterwarnings('ignore')
 from app_core import footer
 from app_core import ui
-from nav import render_sidebar_nav
+from app_core.nav import render_sidebar_nav
 st.set_page_config(page_title="상용 말소분석", layout="wide")
 render_sidebar_nav()
 # 로그인 안하면 바로 로그인페이지로

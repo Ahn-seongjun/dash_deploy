@@ -4,7 +4,7 @@ st.set_page_config(page_title="말소등록 Summary", layout="wide", initial_sid
 import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
-from nav import render_sidebar_nav
+from app_core.nav import render_sidebar_nav
 render_sidebar_nav()
 from app_core import footer
 from app_core import data_loader as dl

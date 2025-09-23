@@ -1,7 +1,7 @@
 # streamlit_app.py
 import streamlit as st
 from app_core.constants import APP_TITLE
-from nav import render_sidebar_nav
+from app_core.nav import render_sidebar_nav
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 
 try:

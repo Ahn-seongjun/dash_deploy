@@ -1,9 +1,11 @@
 # pages/summary/new_reg_summary.py
 import streamlit as st
+st.set_page_config(page_title="신규등록 Summary", layout="wide", initial_sidebar_state="auto")
 import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
-
+from nav import render_sidebar_nav
+render_sidebar_nav()
 from app_core import footer
 from app_core import data_loader as dl
 from app_core import charts as ch

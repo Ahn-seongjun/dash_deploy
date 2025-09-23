@@ -1,15 +1,19 @@
 import streamlit as st
+st.set_page_config(page_title="승용 말소분석", layout="wide")
 import pandas as pd
 import plotly.express as px
 from app_core import footer
 from app_core import ui
-
+from nav import render_sidebar_nav
+render_sidebar_nav()
 ci_data = pd.read_csv('./data/CI 전처리 데이터.csv')
 cl_data = pd.read_csv('./data/CL 전처리 데이터.csv')
 cl_grp = pd.read_csv('./data/cl_그룹별분포용.csv')
 ci_grp = pd.read_csv('./data/ci_그룹별분포용.csv')
 st.markdown("# 승용차 내구성 분석")
-
+# 로그인 안하면 바로 로그인페이지로
+if not st.session_state.get("logged_in", False):
+    st.switch_page("pages/10_Log_in.py")
 # 사이드바
 with st.sidebar:
     ui.sidebar_links()

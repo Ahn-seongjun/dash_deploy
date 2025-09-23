@@ -1,10 +1,12 @@
 import streamlit as st
+st.set_page_config(page_title="A/B Test", layout="wide", initial_sidebar_state="auto")
 import pandas as pd
 import numpy as np
 import scipy.stats
 from scipy.stats import norm
 import altair as alt
-
+from nav import render_sidebar_nav
+render_sidebar_nav()
 
 def conversion_rate(conversions, visitors):
     return (conversions / visitors) * 100

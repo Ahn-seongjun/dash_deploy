@@ -1,7 +1,8 @@
-# pages/summary/Overview.py
 import streamlit as st
-#st.set_page_config(page_title="[카이즈유] 자동차 등록데이터", layout="wide", initial_sidebar_state="auto")
+st.set_page_config(page_title="Overview", layout="wide", initial_sidebar_state="auto")
 
+import warnings
+warnings.filterwarnings('ignore')
 import pandas as pd
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -11,7 +12,8 @@ warnings.filterwarnings('ignore')
 import base64
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-
+from nav import render_sidebar_nav
+render_sidebar_nav()
 # 🔹 공통 로더 사용 (번들러에서만 스피너 1회)
 from app_core import data_loader as dl
 from app_core import charts as od
@@ -144,33 +146,58 @@ with tab1:
     st.plotly_chart(fig1, use_container_width=True)
 
     st.subheader('신규등록 트리맵')
-    if "seg1" not in st.session_state:
-        st.session_state.seg1 = feat[0]
-    if "seg2" not in st.session_state or st.session_state.seg2 == st.session_state.seg1:
-        # seg1과 다른 값으로 기본값 설정
-        st.session_state.seg2 = next(f for f in feat if f != st.session_state.seg1)
+    feat_clean = list(dict.fromkeys(feat))
+    if not feat_clean:
+        st.error("feat가 비어 있습니다.")
+    else:
+        # 1) 세션 키 안전 초기화
+        if "new_seg1" not in st.session_state or st.session_state["new_seg1"] not in feat_clean:
+            st.session_state["new_seg1"] = feat_clean[0]
 
-    tre1, tre2 = st.columns(2)
-    with tre1:
-        st.selectbox("분류1", feat, key="new_seg1", on_change=on_seg1_change)
-    with tre2:
-        seg2_options = [f for f in feat if f != st.session_state.seg1]
-        # 현재 seg2가 옵션에 없으면 첫 옵션으로 보정
-        if st.session_state.seg2 not in seg2_options:
-            st.session_state.seg2 = seg2_options[0]
-        st.selectbox("분류2", seg2_options, key="new_seg2")
+        seg2_options = [f for f in feat_clean if f != st.session_state["new_seg1"]] or feat_clean[:]
+        if ("new_seg2" not in st.session_state) or (st.session_state["new_seg2"] not in seg2_options):
+            st.session_state["new_seg2"] = seg2_options[0]
 
-    seg_one = st.session_state.seg1
-    seg_two = st.session_state.seg2
+        # 2) 위젯 (항상 초기화 이후 렌더)
+        tre1, tre2 = st.columns(2)
+        with tre1:
+            st.selectbox(
+                "분류1",
+                feat_clean,
+                index=feat_clean.index(st.session_state["new_seg1"]),
+                key="new_seg1"
+            )
+        with tre2:
+            # seg1 변경 반영
+            seg2_options = [f for f in feat_clean if f != st.session_state["new_seg1"]] or feat_clean[:]
+            if st.session_state["new_seg2"] not in seg2_options:
+                st.session_state["new_seg2"] = seg2_options[0]
 
-    tree1 = px.treemap(
-        new_mon_cnt,
-        path=[px.Constant("전체"), feat_dict[seg_one], feat_dict[seg_two]],
-        values="CNT",
-        color=feat_dict[seg_one],
-    )
-    tree1.update_layout(margin=dict(t=25, l=25, r=25, b=25))
-    st.plotly_chart(tree1, use_container_width=True, key="new_treemap_chart")
+            st.selectbox(
+                "분류2",
+                seg2_options,
+                index=seg2_options.index(st.session_state["new_seg2"]),
+                key="new_seg2"
+            )
+
+        # 3) Treemap
+        seg_one = st.session_state["new_seg1"]
+        seg_two = st.session_state["new_seg2"]
+        col1 = feat_dict[seg_one]
+        col2 = feat_dict[seg_two]
+
+        missing = [c for c in (col1, col2, "CNT") if c not in new_mon_cnt.columns]
+        if missing:
+            st.error(f"필요 컬럼 누락: {missing}")
+        else:
+            tree1 = px.treemap(
+                new_mon_cnt,
+                path=[px.Constant("전체"), col1, col2],
+                values="CNT",
+                color=col1,
+            )
+            tree1.update_layout(margin=dict(t=25, l=25, r=25, b=25))
+            st.plotly_chart(tree1, use_container_width=True, key="new_treemap_chart")
 
 
     segment = st.selectbox("세부 구분", seg, key="new")
@@ -234,33 +261,58 @@ with tab2:
     st.plotly_chart(fig2, use_container_width=True)
 
     st.subheader('이전등록 트리맵')
-    if "seg1" not in st.session_state:
-        st.session_state.seg1 = feat[0]
-    if "seg2" not in st.session_state or st.session_state.seg2 == st.session_state.seg1:
-        # seg1과 다른 값으로 기본값 설정
-        st.session_state.seg2 = next(f for f in feat if f != st.session_state.seg1)
+    feat_clean = list(dict.fromkeys(feat))
+    if not feat_clean:
+        st.error("feat가 비어 있습니다.")
+    else:
+        # 1) 세션 키 안전 초기화
+        if "used_seg1" not in st.session_state or st.session_state["used_seg1"] not in feat_clean:
+            st.session_state["used_seg1"] = feat_clean[0]
 
-    tre1, tre2 = st.columns(2)
-    with tre1:
-        st.selectbox("분류1", feat, key="used_seg1", on_change=on_seg1_change)
-    with tre2:
-        seg2_options = [f for f in feat if f != st.session_state.seg1]
-        # 현재 seg2가 옵션에 없으면 첫 옵션으로 보정
-        if st.session_state.seg2 not in seg2_options:
-            st.session_state.seg2 = seg2_options[0]
-        st.selectbox("분류2", seg2_options, key="used_seg2")
+        seg2_options = [f for f in feat_clean if f != st.session_state["used_seg1"]] or feat_clean[:]
+        if ("used_seg2" not in st.session_state) or (st.session_state["used_seg2"] not in seg2_options):
+            st.session_state["used_seg2"] = seg2_options[0]
 
-    seg_one = st.session_state.seg1
-    seg_two = st.session_state.seg2
+        # 2) 위젯 (항상 초기화 이후 렌더)
+        tre1, tre2 = st.columns(2)
+        with tre1:
+            st.selectbox(
+                "분류1",
+                feat_clean,
+                index=feat_clean.index(st.session_state["used_seg1"]),
+                key="used_seg1"
+            )
+        with tre2:
+            # seg1 변경 반영
+            seg2_options = [f for f in feat_clean if f != st.session_state["used_seg1"]] or feat_clean[:]
+            if st.session_state["used_seg2"] not in seg2_options:
+                st.session_state["used_seg2"] = seg2_options[0]
 
-    tree1 = px.treemap(
-        used_mon_cnt,
-        path=[px.Constant("전체"), feat_dict[seg_one], feat_dict[seg_two]],
-        values="CNT",
-        color=feat_dict[seg_one],
-    )
-    tree1.update_layout(margin=dict(t=25, l=25, r=25, b=25))
-    st.plotly_chart(tree1, use_container_width=True, key="used_treemap_chart")
+            st.selectbox(
+                "분류2",
+                seg2_options,
+                index=seg2_options.index(st.session_state["used_seg2"]),
+                key="used_seg2"
+            )
+
+        # 3) Treemap
+        seg_one = st.session_state["used_seg1"]
+        seg_two = st.session_state["used_seg2"]
+        col1 = feat_dict[seg_one]
+        col2 = feat_dict[seg_two]
+
+        missing = [c for c in (col1, col2, "CNT") if c not in used_mon_cnt.columns]
+        if missing:
+            st.error(f"필요 컬럼 누락: {missing}")
+        else:
+            tree2 = px.treemap(
+                used_mon_cnt,
+                path=[px.Constant("전체"), col1, col2],
+                values="CNT",
+                color=col1,
+            )
+            tree2.update_layout(margin=dict(t=25, l=25, r=25, b=25))
+            st.plotly_chart(tree2, use_container_width=True, key="used_treemap_chart")
 
     segment = st.selectbox("세부 구분", seg, key="used")
     used_col1, used_col2 = st.columns([2, 2], gap="large")
@@ -323,33 +375,58 @@ with tab3:
     st.plotly_chart(fig3, use_container_width=True)
 
     st.subheader('말소등록 트리맵')
-    if "seg1" not in st.session_state:
-        st.session_state.seg1 = feat[0]
-    if "seg2" not in st.session_state or st.session_state.seg2 == st.session_state.seg1:
-        # seg1과 다른 값으로 기본값 설정
-        st.session_state.seg2 = next(f for f in feat if f != st.session_state.seg1)
+    feat_clean = list(dict.fromkeys(feat))
+    if not feat_clean:
+        st.error("feat가 비어 있습니다.")
+    else:
+        # 1) 세션 키 안전 초기화
+        if "ersr_seg1" not in st.session_state or st.session_state["ersr_seg1"] not in feat_clean:
+            st.session_state["ersr_seg1"] = feat_clean[0]
 
-    tre1, tre2 = st.columns(2)
-    with tre1:
-        st.selectbox("분류1", feat, key="ersr_seg1", on_change=on_seg1_change)
-    with tre2:
-        seg2_options = [f for f in feat if f != st.session_state.seg1]
-        # 현재 seg2가 옵션에 없으면 첫 옵션으로 보정
-        if st.session_state.seg2 not in seg2_options:
-            st.session_state.seg2 = seg2_options[0]
-        st.selectbox("분류2", seg2_options, key="ersr_seg2")
+        seg2_options = [f for f in feat_clean if f != st.session_state["ersr_seg1"]] or feat_clean[:]
+        if ("ersr_seg2" not in st.session_state) or (st.session_state["ersr_seg2"] not in seg2_options):
+            st.session_state["ersr_seg2"] = seg2_options[0]
 
-    seg_one = st.session_state.seg1
-    seg_two = st.session_state.seg2
+        # 2) 위젯 (항상 초기화 이후 렌더)
+        tre1, tre2 = st.columns(2)
+        with tre1:
+            st.selectbox(
+                "분류1",
+                feat_clean,
+                index=feat_clean.index(st.session_state["ersr_seg1"]),
+                key="ersr_seg1"
+            )
+        with tre2:
+            # seg1 변경 반영
+            seg2_options = [f for f in feat_clean if f != st.session_state["ersr_seg1"]] or feat_clean[:]
+            if st.session_state["ersr_seg2"] not in seg2_options:
+                st.session_state["ersr_seg2"] = seg2_options[0]
 
-    tree1 = px.treemap(
-        er_mon_cnt,
-        path=[px.Constant("전체"), feat_dict[seg_one], feat_dict[seg_two]],
-        values="CNT",
-        color=feat_dict[seg_one],
-    )
-    tree1.update_layout(margin=dict(t=25, l=25, r=25, b=25))
-    st.plotly_chart(tree1, use_container_width=True, key="ersr_treemap_chart")
+            st.selectbox(
+                "분류2",
+                seg2_options,
+                index=seg2_options.index(st.session_state["ersr_seg2"]),
+                key="ersr_seg2"
+            )
+
+        # 3) Treemap
+        seg_one = st.session_state["ersr_seg1"]
+        seg_two = st.session_state["ersr_seg2"]
+        col1 = feat_dict[seg_one]
+        col2 = feat_dict[seg_two]
+
+        missing = [c for c in (col1, col2, "CNT") if c not in er_mon_cnt.columns]
+        if missing:
+            st.error(f"필요 컬럼 누락: {missing}")
+        else:
+            tree3 = px.treemap(
+                er_mon_cnt,
+                path=[px.Constant("전체"), col1, col2],
+                values="CNT",
+                color=col1,
+            )
+            tree3.update_layout(margin=dict(t=25, l=25, r=25, b=25))
+            st.plotly_chart(tree3, use_container_width=True, key="ersr_treemap_chart")
 
     segment = st.selectbox("세부 구분", seg, key="ersr")
     er_col1, er_col2 = st.columns([2, 2], gap="large")

@@ -6,7 +6,12 @@ import warnings
 warnings.filterwarnings('ignore')
 from app_core import footer
 from app_core import ui
-
+from nav import render_sidebar_nav
+st.set_page_config(page_title="상용 말소분석", layout="wide")
+render_sidebar_nav()
+# 로그인 안하면 바로 로그인페이지로
+if not st.session_state.get("logged_in", False):
+    st.switch_page("pages/10_Log_in.py")
 # 사이드바
 with st.sidebar:
     ui.sidebar_links()

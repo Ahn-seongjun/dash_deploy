@@ -32,6 +32,6 @@ def render_sidebar_nav():
         # Account
         st.subheader("Account")
         if st.session_state.get("logged_in", False):
-            st.page_link("pages/11_Log_out.py", label="Log out", icon="🚪")
+            st.page_link("pages/11_log_out.py", label="Log out", icon="🚪")
         else:
-            st.page_link("pages/10_Log_in.py", label="Log in", icon="🔐")
+            st.page_link("pages/10_log_in.py", label="Log in", icon="🔐")

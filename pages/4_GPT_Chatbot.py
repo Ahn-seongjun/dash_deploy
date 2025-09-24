@@ -1,141 +1,97 @@
-from openai import OpenAI
 import streamlit as st
 st.set_page_config(page_title="Chatbot", layout="wide", initial_sidebar_state="auto")
-import pandas as pd
-import os
+
 from app_core.nav import render_sidebar_nav
 render_sidebar_nav()
-# 페이지 설정
-# 사이드바 - API 키 입력
+
+# 사이드바: API 키만
 with st.sidebar:
-    openai_api_key = st.text_input("OpenAI API Key", key="chatbot_api_key", type="password")
-    "[OpenAI API key 발급](https://platform.openai.com/account/api-keys)"
+    openai_api_key = st.text_input("OpenAI API Key (선택)", key="chatbot_api_key", type="password")
+    st.caption("키가 없어도 로컬 집계로 답합니다. 키가 있으면 설명 문장만 LLM이 작성합니다.")
 
-# 데이터 로딩
-data_path = "./data/2024년 누적 데이터.csv"
-if not os.path.exists(data_path):
-    st.error("🚫 데이터 파일을 찾을 수 없습니다. 경로를 확인해주세요.")
-    st.stop()
+from app_core import chatbot_engine as eng
 
-df_new = pd.read_csv(data_path, index_col=0)
+# 1) 컨텍스트 로드
+ctx = eng.load_context()
+frames, colmaps = ctx["frames"], ctx["colmaps"]
+has_er_detail, catalog = ctx["has_er_detail"], ctx["catalog"]
 
-# 연료별 통계 요약 함수
-def summarize_fuel_by_keyword(fuel_type: str, user_input: str):
-    if fuel_type == None :
-        fuel_df = df_new
-    else:
-        fuel_df = df_new[df_new["FUEL"] == fuel_type]
+# 2) UI
+st.title("💬 데이터 기반 Chatbot")
+st.caption("자연어 질의를 내부 데이터로 해석해 집계/상세 정보를 제공합니다.")
 
-    result = {}
-
-    # 연령
-    if "연령" in user_input or "나이" in user_input:
-        result["연령별 집계"] = fuel_df.groupby("AGE")["CNT"].sum().sort_values(ascending=False).to_string()
-
-    # 국산/수입
-    if "국산" in user_input or "수입" in user_input or "세그먼트" in user_input:
-        result["국산/수입 세그먼트별 집계"] = fuel_df.groupby("CL_HMMD_IMP_SE_NM")["CNT"].sum().sort_values(
-            ascending=False).to_string()
-
-    # 브랜드
-    if "브랜드" in user_input:
-        result["브랜드별 집계"] = fuel_df.groupby("ORG_CAR_MAKER_KOR")["CNT"].sum().sort_values(ascending=False).to_string()
-
-    # 모델
-    if "모델" in user_input:
-        result["모델별 집계"] = fuel_df.groupby("CAR_MOEL_DT")["CNT"].sum().sort_values(ascending=False).to_string()
-
-    # 디폴트: 아무 키워드 없으면 전부 보여줌
-    if not result:
-        result["연령별 집계"] = fuel_df.groupby("AGE")["CNT"].sum().to_string()
-        result["국산/수입 세그먼트별 집계"] = fuel_df.groupby("CL_HMMD_IMP_SE_NM")["CNT"].sum().to_string()
-        result["브랜드별 집계"] = fuel_df.groupby("ORG_CAR_MAKER_KOR")["CNT"].sum().sort_values(ascending=False).to_string()
-        result["모델별 집계"] = fuel_df.groupby("CAR_MOEL_DT")["CNT"].sum().sort_values(ascending=False).to_string()
-
-    return result
-
-
-# 키워드 탐지 및 통계 추출
-def detect_keyword_and_summarize(user_input):
-    fuel_keywords = {
-        "휘발유": "휘발유", "경유": "경유", "전기": "전기",
-        "하이브리드": "하이브리드", "엘피지": "엘피지", "LPG": "엘피지"
-    }
-    category_keywords = {
-        "연령": "AGE",
-        "연령대": "AGE",
-        "국산": "CL_HMMD_IMP_SE_NM",
-        "수입": "CL_HMMD_IMP_SE_NM",
-        "브랜드": "ORG_CAR_MAKER_KOR",
-        "제조사": "ORG_CAR_MAKER_KOR",
-        "모델": "CAR_MOEL_DT",
-        "차종": "CAR_MOEL_DT"
-    }
-
-    fuel = None
-    for key, val in fuel_keywords.items():
-        if key in user_input:
-            fuel = val
-            break
-
-    category = None
-    for key, val in category_keywords.items():
-        if key in user_input:
-            category = val
-            break
-
-    if fuel and category:
-        filtered = df_new[df_new["FUEL"] == fuel]
-        summary = filtered.groupby(category)["CNT"].sum().sort_values(ascending=False).to_string()
-        return summary
-
-    return None
-
-
-# 초기 메시지
-st.title("💬 Chatbot")
-st.caption("chatbot powered by OpenAI")
-st.caption("해당 서비스는 GPT API 토큰 보유 시 사용 가능합니다.")
-
-# 채팅 세션 상태 초기화
+# 채팅 로그
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
-        {"role": "assistant", "content": "안녕하세요. 자동차 전문가 페페에요! 2024년 국내 자동차 시장에 대해 물어보시면 답변드릴게요!"}
+        {"role":"assistant","content":"예) '2025년 7월 신규 대수', '신규 전기차 SUV 차급별 상위 5', '기아 카니발 알려줘'"},
     ]
+for m in st.session_state["messages"]:
+    st.chat_message(m["role"], avatar="🤖" if m["role"]=="assistant" else "🙋‍♂️").write(m["content"])
 
-for msg in st.session_state["messages"]:
-    st.chat_message(msg["role"], avatar="🤖" if msg["role"] == "assistant" else "🙋‍♂️").write(msg["content"])
+# 3) 입력 처리
+if q := st.chat_input("무엇이 궁금하세요?"):
+    st.chat_message("user", avatar="🙋‍♂️").write(q)
+    st.session_state["messages"].append({"role":"user","content":q})
 
-if prompt := st.chat_input("궁금한 내용을 입력하세요! 예: '전기차 연령별 신차 등록 수'"):
-    if not openai_api_key:
-        st.warning("❗ OpenAI API 키를 입력해주세요.")
-        st.stop()
+    # ✅ 스펙 의도 감지
+    is_spec, b_like, m_like = eng.detect_spec_intent(q, catalog)
+    if is_spec:
+        # ⬇️ 누적 상세 + 신규(세그) 합집합으로 스펙 생성
+        spec_df = eng.vehicle_specs_from_sources(
+            frames=frames,
+            colmaps=colmaps,
+            brand_like=b_like,
+            model_like=m_like,
+            include=("누적 상세", "신규(세그)")   # 원하면 모든 세그로 확장 가능
+        )
+        st.chat_message("assistant", avatar="📙").write("차종 스펙 정보")
+        st.dataframe(spec_df, use_container_width=True)
+        st.session_state["messages"].append({"role":"assistant","content":"차종 스펙 정보를 표시했습니다."})
+        raise st.stop()
 
-    client = OpenAI(api_key=openai_api_key)
+    # 1) (스펙이 아니면) 기존처럼 소스 결정 → 플랜 생성 → 집계/표시
+    source0 = eng.detect_source(q, has_er_detail)
+    plan    = eng.parse_query(q, source0, catalog)
+    source  = eng.route_source(q, source0, plan, colmaps, has_er_detail)
 
-    summary = detect_keyword_and_summarize(prompt)
-    if summary:
-        system_prompt = f"""너는 자동차 등록 통계를 설명하는 데이터 전문가야.
-    다음 통계 요약을 기반으로 사용자 질문에 대해 친절하게 설명해줘:\n\n{summary}"""
-    else:
-        system_prompt = """너는 자동차 등록 통계를 설명하는 데이터 전문가야.
-    사용자가 제공한 질문에서 핵심 키워드를 찾지 못했어.
-    자동차 통계와 관련된 일반적인 정보를 설명해주고, 아래 사이트도 함께 참고하라고 안내해줘:
-    - [카차트 통계 시각화 플랫폼](https://carcharts-free.carisyou.net/?utm_source=Carisyou&utm_medium=Banner&utm_campaign=P03_PC_Free&)
-    - 또는 [CARISYOU 자동차 사이트](https://www.carisyou.com/)
-    """
+    try:
+        df_out, meta = eng.execute(frames[source], plan, colmaps[source], source)
 
-    st.session_state["messages"].append({"role": "user", "content": prompt})
-    st.chat_message("user", avatar="🙋‍♂️").write(prompt)
+        st.subheader("📊 집계 결과")
+        st.dataframe(df_out, use_container_width=True)
+        fig = eng.make_chart(df_out)
+        if fig is None and not df_out.empty:
+            st.metric("합계(대수)", f"{int(df_out.iloc[0]['대수']):,}")
+        elif fig is not None:
+            st.plotly_chart(fig, use_container_width=True)
 
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt},
+        if openai_api_key:
+            answer = eng.llm_explain(plan, df_out, q, openai_api_key)
+        else:
+            if df_out.empty:
+                answer = "요청 조건에 해당하는 결과가 없습니다."
+            elif df_out.shape[0] == 1:
+                answer = f"요청하신 조건의 합계는 {int(df_out.iloc[0]['대수']):,}대입니다."
+            else:
+                head = df_out.iloc[0]
+                total = int(df_out['대수'].sum())
+                share = 100.0 * int(head['대수']) / total if total else 0.0
+                answer = f"가장 큰 항목은 '{head['구분']}'({int(head['대수']):,}대)로, 표 합계 대비 약 {share:.1f}%입니다."
+
+        st.chat_message("assistant", avatar="🤖").write(answer)
+
+        # 기존 요구사항대로 조건 요약만 노출(플랜/필터 원본 JSON은 비노출)
+        st.chat_message("assistant", avatar="🧭").markdown(eng.render_condition_summary(meta))
+
+        st.session_state["messages"] += [
+            {"role":"assistant","content":answer},
+            {"role":"assistant","content":eng.render_condition_summary(meta)},
         ]
-    )
 
-    reply = response.choices[0].message.content
-    st.session_state["messages"].append({"role": "assistant", "content": reply})
-    st.chat_message("assistant", avatar="🤖").write(reply)
+        # (원하면 여기서 스펙도 추가로 보여줄 수 있지만,
+        #  지금은 '스펙 의도'가 아니므로 기본 집계 흐름만 유지)
+
+    except Exception as e:
+        err = f"질의 처리 중 오류: {e}"
+        st.chat_message("assistant", avatar="🤖").error(err)
+        st.session_state["messages"].append({"role":"assistant","content":err})

@@ -32,9 +32,8 @@ er_mon_cnt  = data["er_mon_cnt"]
 new_seg     = data["new_seg"]
 used_seg    = data["used_seg"]
 er_seg      = data["er_seg"]
-
 # =============================
-# 2) 전처리 (네 코드 그대로)
+# 2) 전처리
 # =============================
 for df in (new_seg, used_seg, er_seg):
     df["EXTRACT_DE"] = df["EXTRACT_DE"].astype(str)
@@ -43,15 +42,15 @@ for df in (new_seg, used_seg, er_seg):
 mon_new  = new_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
 mon_used = used_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
 mon_er   = er_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
-this_new  = mon_new[(mon_new['YEA']==2025) & (mon_new['MON']==8)]['CNT'].values[0]
-this_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON']==8)]['CNT'].values[0]
-this_er   = mon_er[(mon_er['YEA']==2025) & (mon_er['MON']==8)]['CNT'].values[0]
-last_new  = mon_new[(mon_new['YEA']==2025) & (mon_new['MON']==7)]['CNT'].values[0]
-last_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON']==7)]['CNT'].values[0]
-last_er   = mon_er[(mon_er['YEA']==2025) & (mon_er['MON']==7)]['CNT'].values[0]
+this_new  = mon_new[(mon_new['YEA']==2025) & (mon_new['MON']==9)]['CNT'].values[0]
+this_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON']==9)]['CNT'].values[0]
+this_er   = mon_er[(mon_er['YEA']==2025) & (mon_er['MON']==9)]['CNT'].values[0]
+last_new  = mon_new[(mon_new['YEA']==2025) & (mon_new['MON']==8)]['CNT'].values[0]
+last_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON']==8)]['CNT'].values[0]
+last_er   = mon_er[(mon_er['YEA']==2025) & (mon_er['MON']==8)]['CNT'].values[0]
 
 def cal(x,y):
-    return round((x-y)/y, 2)
+    return round((x-y)/y, 3)
 
 today = datetime.today()
 month_ago = datetime(today.year, today.month, today.day) + relativedelta(months=-1)
@@ -71,7 +70,7 @@ new, used, ersr, op = st.columns(4)
 new.metric("신규 등록", format(this_new,','),  f"{cal(this_new, last_new)}%",  border=True)
 used.metric("이전 등록", format(this_used,','), f"{cal(this_used, last_used)}%", border=True)
 ersr.metric("말소 등록", format(this_er,','),   f"{cal(this_er, last_er)}%",    border=True)
-op.metric("운행 등록",   format(int(26434579),','), f"{cal(26434579, 26425398)}%", border=True)
+op.metric("운행 등록",   format(int(26456457),','), f"{cal(26456457, 26434579)}%", border=True)
 
 # 탭 스타일
 ui.apply_tab_style()
@@ -204,7 +203,7 @@ with tab1:
     new_col1, new_col2 = st.columns([2, 2], gap="large")
     with new_col1:
         st.subheader(f"{month}월 {segment}별 신차등록 점유율")
-        df_sz = new_seg[new_seg['EXTRACT_DE']=='202508'].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        df_sz = new_seg[new_seg['EXTRACT_DE']=='202509'].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
         new_sz = px.pie(df_sz, values="CNT", names=seg_dict[segment][0], hole=.3,
                         category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(new_sz, use_container_width=True)
@@ -318,7 +317,7 @@ with tab2:
     used_col1, used_col2 = st.columns([2, 2], gap="large")
     with used_col1:
         st.subheader(f"{month}월 {segment}별 이전등록 점유율")
-        df_us = used_seg[used_seg['EXTRACT_DE']=='202508'].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        df_us = used_seg[used_seg['EXTRACT_DE']=='202509'].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
         us_plot = px.pie(df_us, values="CNT", names=seg_dict[segment][0], hole=.3,
                          category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(us_plot, use_container_width=True)
@@ -432,7 +431,7 @@ with tab3:
     er_col1, er_col2 = st.columns([2, 2], gap="large")
     with er_col1:
         st.subheader(f"{month}월 {segment}별 말소등록 점유율")
-        df_er = er_seg[er_seg['EXTRACT_DE']=='202508'].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        df_er = er_seg[er_seg['EXTRACT_DE']=='202509'].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
         er_plot = px.pie(df_er, values="CNT", names=seg_dict[segment][0], hole=.3,
                          category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(er_plot, use_container_width=True)

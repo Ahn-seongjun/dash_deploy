@@ -31,16 +31,11 @@ def load_csv(path: Path, dtype=None, parse_dates=None) -> pd.DataFrame:
 # ── 번들러: 스피너 1회 표시 ──────────────────────────────────────────
 @st.cache_data(ttl=3600, show_spinner="🚗 데이터 엔진 예열 중…")
 def get_overview_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
-    """
-    Overview 화면에서 쓰는 3개 통합 원장 (시트: ['신규','이전','말소'])
-    - ./data/2508_top.xlsx
-    - ./data/24_25_moncnt.xlsx
-    - ./data/2508차급외형연료.xlsx
-    """
+
     base = Path(base_dir) if base_dir else Path("./data")
-    p_top = base / "2508_top.xlsx"
+    p_top = base / "2509_top.xlsx"
     p_mon = base / "24_25_moncnt.xlsx"
-    p_seg = base / "2508차급외형연료.xlsx"
+    p_seg = base / "2509차급외형연료.xlsx"
 
     top_wb = load_workbook(p_top, sheets=["신규","이전","말소"])
     mon_wb = load_workbook(p_mon, sheets=["신규","이전","말소"])
@@ -58,7 +53,7 @@ def get_overview_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]
         "er_seg":       seg_wb["말소"].copy(),
     }
 
-# (참고) 신규 요약 페이지에서 사용하는 번들러 (이미 적용하셨으면 유지)
+
 @st.cache_data(ttl=3600, show_spinner="신규등록 데이터 불러오는 중...")
 def get_newreg_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
     base = Path(base_dir) if base_dir else Path("./data")

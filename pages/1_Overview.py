@@ -42,15 +42,15 @@ for df in (new_seg, used_seg, er_seg):
 mon_new  = new_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
 mon_used = used_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
 mon_er   = er_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
-this_new  = mon_new[(mon_new['YEA']==2025) & (mon_new['MON']==9)]['CNT'].values[0]
-this_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON']==9)]['CNT'].values[0]
-this_er   = mon_er[(mon_er['YEA']==2025) & (mon_er['MON']==9)]['CNT'].values[0]
-last_new  = mon_new[(mon_new['YEA']==2025) & (mon_new['MON']==8)]['CNT'].values[0]
-last_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON']==8)]['CNT'].values[0]
-last_er   = mon_er[(mon_er['YEA']==2025) & (mon_er['MON']==8)]['CNT'].values[0]
+this_new  = mon_new[(mon_new['YEA']==2025) & (mon_new['MON']==10)]['CNT'].values[0]
+this_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON']==10)]['CNT'].values[0]
+this_er   = mon_er[(mon_er['YEA']==2025) & (mon_er['MON']==10)]['CNT'].values[0]
+last_new  = mon_new[(mon_new['YEA']==2025) & (mon_new['MON']==9)]['CNT'].values[0]
+last_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON']==9)]['CNT'].values[0]
+last_er   = mon_er[(mon_er['YEA']==2025) & (mon_er['MON']==9)]['CNT'].values[0]
 
 def cal(x,y):
-    return round((x-y)/y, 3)
+    return round((x-y)/y, 4)
 
 today = datetime.today()
 month_ago = datetime(today.year, today.month, today.day) + relativedelta(months=-1)
@@ -70,7 +70,7 @@ new, used, ersr, op = st.columns(4)
 new.metric("신규 등록", format(this_new,','),  f"{cal(this_new, last_new)}%",  border=True)
 used.metric("이전 등록", format(this_used,','), f"{cal(this_used, last_used)}%", border=True)
 ersr.metric("말소 등록", format(this_er,','),   f"{cal(this_er, last_er)}%",    border=True)
-op.metric("운행 등록",   format(int(26456457),','), f"{cal(26456457, 26434579)}%", border=True)
+op.metric("운행 등록",   format(int(26462222),','), f"{cal(26462222, 26456457)}%", border=True)
 
 # 탭 스타일
 ui.apply_tab_style()

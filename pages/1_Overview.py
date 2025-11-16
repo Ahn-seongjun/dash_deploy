@@ -38,24 +38,25 @@ er_seg      = data["er_seg"]
 for df in (new_seg, used_seg, er_seg):
     df["EXTRACT_DE"] = df["EXTRACT_DE"].astype(str)
 
-# 슬라이싱
-mon_new  = new_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
-mon_used = used_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
-mon_er   = er_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
-this_new  = mon_new[(mon_new['YEA']==2025) & (mon_new['MON']==10)]['CNT'].values[0]
-this_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON']==10)]['CNT'].values[0]
-this_er   = mon_er[(mon_er['YEA']==2025) & (mon_er['MON']==10)]['CNT'].values[0]
-last_new  = mon_new[(mon_new['YEA']==2025) & (mon_new['MON']==9)]['CNT'].values[0]
-last_used = mon_used[(mon_used['YEA']==2025) & (mon_used['MON']==9)]['CNT'].values[0]
-last_er   = mon_er[(mon_er['YEA']==2025) & (mon_er['MON']==9)]['CNT'].values[0]
-
-def cal(x,y):
-    return round((x-y)/y, 4)
-
 today = datetime.today()
 month_ago = datetime(today.year, today.month, today.day) + relativedelta(months=-1)
 year = today.year
 month = "{}".format(month_ago.strftime('%m'))
+month_ago_2 = datetime(today.year, today.month, today.day) + relativedelta(months=-2)
+month_2 = "{}".format(month_ago_2.strftime('%m'))
+# 슬라이싱
+mon_new  = new_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
+mon_used = used_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
+mon_er   = er_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
+this_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==int(month))]['CNT'].values[0]
+this_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==int(month))]['CNT'].values[0]
+this_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==int(month))]['CNT'].values[0]
+last_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==int(month_2))]['CNT'].values[0]
+last_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==int(month_2))]['CNT'].values[0]
+last_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==int(month_2))]['CNT'].values[0]
+
+def cal(x,y):
+    return round((x-y)/y, 4)
 
 # 사이드바
 with st.sidebar:

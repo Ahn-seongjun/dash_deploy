@@ -38,16 +38,23 @@ def load_csv(path: Path, dtype=None, parse_dates=None) -> pd.DataFrame:
 # ── 번들러: 스피너 1회 표시 ──────────────────────────────────────────
 @st.cache_data(ttl=3600, show_spinner="🚗 데이터 엔진 예열 중…")
 def get_overview_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
+    try:
+        base = Path(base_dir) if base_dir else Path("./data")
+        p_top = base / f"25{month}_top.xlsx"
+        p_mon = base / "24_25_moncnt.xlsx"
+        p_seg = base / f"25{month}차급외형연료.xlsx"
 
-    base = Path(base_dir) if base_dir else Path("./data")
-    p_top = base / f"25{month}_top.xlsx"
-    p_mon = base / "24_25_moncnt.xlsx"
-    p_seg = base / f"25{month}차급외형연료.xlsx"
-
-    top_wb = load_workbook(p_top, sheets=["신규","이전","말소"])
-    mon_wb = load_workbook(p_mon, sheets=["신규","이전","말소"])
-    seg_wb = load_workbook(p_seg, sheets=["신규","이전","말소"])
-
+        top_wb = load_workbook(p_top, sheets=["신규","이전","말소"])
+        mon_wb = load_workbook(p_mon, sheets=["신규","이전","말소"])
+        seg_wb = load_workbook(p_seg, sheets=["신규","이전","말소"])
+    except:
+        nodata = datetime(today.year, today.month, today.day) + relativedelta(months=-2)
+        premon = "{}".format(nodata.strftime('%m'))
+        p_top = base / f"25{premon}_top.xlsx"
+        p_seg = base / f"25{premon}차급외형연료.xlsx"
+        top_wb = load_workbook(p_top, sheets=["신규","이전","말소"])
+        mon_wb = load_workbook(p_mon, sheets=["신규","이전","말소"])
+        seg_wb = load_workbook(p_seg, sheets=["신규","이전","말소"])
     return {
         "new_top":      top_wb["신규"],
         "use_top":      top_wb["이전"],

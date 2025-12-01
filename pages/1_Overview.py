@@ -22,7 +22,7 @@ from app_core import ui
 # =============================
 # 1) 데이터 로딩 (스피너는 번들러에서 한 번만)
 # =============================
-data = dl.get_overview_data()  # 필요시 base_dir="data" 지정 가능
+data = dl.get_overview_data()
 new_top     = data["new_top"]
 use_top     = data["use_top"]
 ersr_top    = data["ersr_top"]
@@ -48,13 +48,19 @@ month_2 = "{}".format(month_ago_2.strftime('%m'))
 mon_new  = new_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
 mon_used = used_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
 mon_er   = er_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
-this_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==int(month))]['CNT'].values[0]
-this_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==int(month))]['CNT'].values[0]
-this_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==int(month))]['CNT'].values[0]
-last_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==int(month_2))]['CNT'].values[0]
-last_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==int(month_2))]['CNT'].values[0]
-last_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==int(month_2))]['CNT'].values[0]
-
+pre_mon = mon_new['MON'][-1:].values[0]
+# this_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==int(month))]['CNT'].values[0]
+# this_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==int(month))]['CNT'].values[0]
+# this_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==int(month))]['CNT'].values[0]
+# last_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==int(month_2))]['CNT'].values[0]
+# last_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==int(month_2))]['CNT'].values[0]
+# last_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==int(month_2))]['CNT'].values[0]
+this_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==pre_mon)]['CNT'].values[0]
+this_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==pre_mon)]['CNT'].values[0]
+this_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==pre_mon)]['CNT'].values[0]
+last_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==pre_mon-1)]['CNT'].values[0]
+last_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==pre_mon-1)]['CNT'].values[0]
+last_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==pre_mon-1)]['CNT'].values[0]
 def cal(x,y):
     return round((x-y)/y, 4)
 

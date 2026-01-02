@@ -49,18 +49,14 @@ mon_new  = new_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
 mon_used = used_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
 mon_er   = er_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
 pre_mon = mon_new['MON'][-1:].values[0]
-# this_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==int(month))]['CNT'].values[0]
-# this_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==int(month))]['CNT'].values[0]
-# this_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==int(month))]['CNT'].values[0]
-# last_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==int(month_2))]['CNT'].values[0]
-# last_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==int(month_2))]['CNT'].values[0]
-# last_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==int(month_2))]['CNT'].values[0]
-this_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==pre_mon)]['CNT'].values[0]
-this_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==pre_mon)]['CNT'].values[0]
-this_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==pre_mon)]['CNT'].values[0]
-last_new  = mon_new[(mon_new['YEA']==int(year)) & (mon_new['MON']==pre_mon-1)]['CNT'].values[0]
-last_used = mon_used[(mon_used['YEA']==int(year)) & (mon_used['MON']==pre_mon-1)]['CNT'].values[0]
-last_er   = mon_er[(mon_er['YEA']==int(year)) & (mon_er['MON']==pre_mon-1)]['CNT'].values[0]
+pre_year = mon_new['YEA'][-1:].values[0]
+
+this_new  = mon_new[(mon_new['YEA']==pre_year) & (mon_new['MON']==pre_mon)]['CNT'].values[0]
+this_used = mon_used[(mon_used['YEA']==pre_year) & (mon_used['MON']==pre_mon)]['CNT'].values[0]
+this_er   = mon_er[(mon_er['YEA']==pre_year) & (mon_er['MON']==pre_mon)]['CNT'].values[0]
+last_new  = mon_new[(mon_new['YEA']==pre_year) & (mon_new['MON']==pre_mon-1)]['CNT'].values[0]
+last_used = mon_used[(mon_used['YEA']==pre_year) & (mon_used['MON']==pre_mon-1)]['CNT'].values[0]
+last_er   = mon_er[(mon_er['YEA']==pre_year) & (mon_er['MON']==pre_mon-1)]['CNT'].values[0]
 def cal(x,y):
     return round((x-y)/y, 4)
 
@@ -70,14 +66,14 @@ with st.sidebar:
 
 # 헤더/KPI
 st.header("Summary")
-st.markdown(f"## {year}년 {month}월 기준 자동차 등록 요약")
+st.markdown(f"## {pre_year}년 {pre_mon}월 기준 자동차 등록 요약")
 st.markdown('### 월간 승용차 등록 집계', help='전월대비 증감')
 
 new, used, ersr, op = st.columns(4)
 new.metric("신규 등록", format(this_new,','),  f"{cal(this_new, last_new)}%",  border=True)
 used.metric("이전 등록", format(this_used,','), f"{cal(this_used, last_used)}%", border=True)
 ersr.metric("말소 등록", format(this_er,','),   f"{cal(this_er, last_er)}%",    border=True)
-op.metric("운행 등록",   format(int(26462222),','), f"{cal(26462222, 26456457)}%", border=True)
+op.metric("운행 등록",   format(int(26489839),','), f"{cal(26489839, 26462222)}%", border=True)
 
 # 탭 스타일
 ui.apply_tab_style()

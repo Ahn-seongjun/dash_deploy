@@ -73,8 +73,8 @@ def get_newreg_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
     base = Path(base_dir) if base_dir else Path("./data")
     paths = {
         "monthly": base / "simple_monthly_cnt.csv",
-        "cum":     base / "12-24누적 용도별 등록대수.csv",
-        "dim":     base / "2024년 누적 데이터.csv",
+        "cum":     base / "16-25누적 용도별 등록대수.csv",
+        "dim":     base / "2025년 누적 데이터.csv",
     }
     return {
         "monthly": load_csv(paths["monthly"]),
@@ -85,5 +85,5 @@ def get_newreg_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
 @st.cache_data(ttl=3600, show_spinner="말소등록 데이터 불러오는 중...")
 def get_ersr_data(base_dir: Optional[str] = "data/ersr") -> Dict[str, pd.DataFrame]:
     base = Path(base_dir) if base_dir else Path("./data/ersr")
-    df = load_csv(base / "2024년 말소데이터.csv")
+    df = load_csv(base / "2025년 말소데이터.csv")
     return {"monthly": df}

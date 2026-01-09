@@ -27,8 +27,8 @@ reg = format(len(df), ",d")
 with st.sidebar:
     ui.sidebar_links()
 
-st.markdown("## 2024 Yearly Summary")
-st.markdown(f"### 2024년 자진말소(폐차) 등록대수 : {reg}")
+st.markdown("## 2025 Yearly Summary")
+st.markdown(f"### 2025년 자진말소(폐차) 등록대수 : {reg}")
 st.markdown("- 승용차 대상 집계")
 st.markdown("- 말소 등록 : 자진말소(폐차)")
 st.markdown("----")
@@ -110,11 +110,13 @@ with midright_column:
     st.plotly_chart(mo_im, use_container_width=True)
 
 with botleft_column:
+    st.subheader("소유자 유형별 분포")
     sou_gb = ch.sunburst_simple(df, path=["소유자유형", "성별", "연령"], values="val",
                                 color="성별", title="소유자 유형별 분포")
     st.plotly_chart(sou_gb, use_container_width=True)
 
 with botright_column:
+    st.subheader("소유자 연령별 분포")
     df1 = df.groupby("연령")["val"].sum().reset_index()
     sou_age = ch.pie_simple(df1, values="val", names="연령", hole=.3, title="소유자 연령별 분포")
     st.plotly_chart(sou_age, use_container_width=True)

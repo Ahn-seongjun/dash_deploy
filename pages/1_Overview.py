@@ -211,7 +211,7 @@ with tab1:
                         category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(new_sz, use_container_width=True)
     with new_col2:
-        st.subheader(f"{year}년 {segment}별 누적 영역 그래프")
+        st.subheader(f"{pre_year}년 {segment}별 누적 영역 그래프")
         stacked_area = new_seg.groupby(['EXTRACT_DE', seg_dict[segment][0]])[['CNT']].sum().reset_index()
         stacked_area["EXTRACT_DE"] = pd.to_datetime(stacked_area["EXTRACT_DE"].astype(str), format="%Y%m")
         area_sz = px.area(stacked_area, x="EXTRACT_DE", y="CNT", color=seg_dict[segment][0],
@@ -325,7 +325,7 @@ with tab2:
                          category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(us_plot, use_container_width=True)
     with used_col2:
-        st.subheader(f"{year}년 {segment}별 누적 영역 그래프")
+        st.subheader(f"{pre_year}년 {segment}별 누적 영역 그래프")
         stacked_area = used_seg.groupby(['EXTRACT_DE', seg_dict[segment][0]])[['CNT']].sum().reset_index()
         stacked_area["EXTRACT_DE"] = pd.to_datetime(stacked_area["EXTRACT_DE"].astype(str), format="%Y%m")
         area_sz = px.area(stacked_area, x="EXTRACT_DE", y="CNT", color=seg_dict[segment][0],
@@ -438,8 +438,8 @@ with tab3:
         er_plot = px.pie(df_er, values="CNT", names=seg_dict[segment][0], hole=.3,
                          category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(er_plot, use_container_width=True)
-    with er_col2:
-        st.subheader(f"{year}년 {segment}별 누적 영역 그래프")
+    with er_col2: # year
+        st.subheader(f"{pre_year}년 {segment}별 누적 영역 그래프")
         stacked_area = er_seg.groupby(['EXTRACT_DE', seg_dict[segment][0]])[['CNT']].sum().reset_index()
         stacked_area["EXTRACT_DE"] = pd.to_datetime(stacked_area["EXTRACT_DE"].astype(str), format="%Y%m")
         area_sz = px.area(stacked_area, x="EXTRACT_DE", y="CNT", color=seg_dict[segment][0],

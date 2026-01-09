@@ -37,10 +37,10 @@ with st.sidebar:
     ui.sidebar_links()
 
 
-st.markdown("## 2024 Yearly Summary")
-st.markdown(f"#### 2024년 누적 신규등록대수 : {reg}")
+st.markdown("## 2025 Yearly Summary")
+st.markdown(f"#### 2025년 승용 신규등록대수 : {reg}")
 
-st.header("월별 누적 신규등록대수")
+st.header("월별 신규등록대수")
 tab1, tab2 = st.tabs(["bar", "line"])
 
 midleft_column, midright_column = st.columns([2, 2], gap="large")
@@ -102,7 +102,8 @@ with bot2right:
     fig_age = ch.pie_simple(df_age, values="CNT", names="AGE", hole=.3,
                             category_orders={"AGE": age_order})
     st.plotly_chart(fig_age, use_container_width=True)
-
+idx_lst = df_use.columns[2:].tolist()
+idx_lst = ['20'+ x for x in idx_lst]
 with bot3le:
     st.subheader("연도별 용도별 신규등록대수")
     use = df_use["CAR_USE"].unique().tolist()
@@ -111,7 +112,7 @@ with bot3le:
     pre_use_df = sele_use_df.iloc[:, 1:].transpose()
     pre_use_df.rename(columns=pre_use_df.iloc[0], inplace=True)
     pre_use_df = pre_use_df.drop(pre_use_df.index[0])
-    pre_use_df.index = [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+    pre_use_df.index = idx_lst#[2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
     pre_use_df.reset_index(inplace=True)
     pre_use_df.rename(columns={"index": "연도"}, inplace=True)
 

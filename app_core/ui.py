@@ -23,13 +23,13 @@ def apply_tab_style():
         .stTabs [data-baseweb="tab"][aria-selected="true"],
         .stTabs button[role="tab"][aria-selected="true"] {
             color: #ffffff !important;
-            background-color: #00dac4 !important;
+            background-color: #dce5f8 !important;
             border-radius: 8px 8px 0 0 !important;
         }
 
         .stTabs [data-baseweb="tab"]:hover,
         .stTabs button[role="tab"]:hover {
-            background-color: #e9f2fb !important;
+            background-color: #dce5f8 !important;
         }
         </style>
         """,

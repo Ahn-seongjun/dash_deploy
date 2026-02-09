@@ -21,17 +21,17 @@ def render_sidebar_nav():
         st.page_link("pages/5_ab_test_platform.py", label="A/B Test", icon="🆎")
 
         # Durability Project (로그인한 경우에만 노출)
-        if st.session_state.get("logged_in", False):
-            st.subheader("Durability Project")
-            st.page_link("pages/6_PV_ANALYSIS.py", label="PV ANALYSIS", icon="📈")
-            st.page_link("pages/7_PV_FRST_YEAR_DATASET.py", label="PV FRST YEAR DATASET", icon="🗂️")
-            st.page_link("pages/8_PV_MA_GRAPH.py", label="PV MA GRAPH", icon="📊")
-            st.page_link("pages/9_CV_ANALYSIS.py", label="CV ANALYSIS", icon="🧮")
+        # if st.session_state.get("logged_in", False):
+        #     st.subheader("Durability Project")
+        #     st.page_link("pages/6_PV_ANALYSIS.py", label="PV ANALYSIS", icon="📈")
+        #     st.page_link("pages/7_PV_FRST_YEAR_DATASET.py", label="PV FRST YEAR DATASET", icon="🗂️")
+        #     st.page_link("pages/8_PV_MA_GRAPH.py", label="PV MA GRAPH", icon="📊")
+        #     st.page_link("pages/9_CV_ANALYSIS.py", label="CV ANALYSIS", icon="🧮")
         # else:  # 아예 숨김. 힌트를 주고 싶으면 이쪽에 캡션으로 "로그인 후 이용 가능" 정도 표시해도 OK
 
         # Account
-        st.subheader("Account")
-        if st.session_state.get("logged_in", False):
-            st.page_link("pages/11_log_out.py", label="Log out", icon="🚪")
-        else:
-            st.page_link("pages/10_log_in.py", label="Log in", icon="🔐")
+        # st.subheader("Account")
+        # if st.session_state.get("logged_in", False):
+        #     st.page_link("pages/11_log_out.py", label="Log out", icon="🚪")
+        # else:
+        #     st.page_link("pages/10_log_in.py", label="Log in", icon="🔐")

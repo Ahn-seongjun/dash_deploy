@@ -43,6 +43,7 @@ month_ago = datetime(today.year, today.month, today.day) + relativedelta(months=
 year = today.year
 month = "{}".format(month_ago.strftime('%m'))
 month_ago_2 = datetime(today.year, today.month, today.day) + relativedelta(months=-2)
+year_2 = "{}".format(month_ago_2.strftime('%Y'))
 month_2 = "{}".format(month_ago_2.strftime('%m'))
 # 슬라이싱
 mon_new  = new_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
@@ -50,13 +51,16 @@ mon_used = used_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
 mon_er   = er_mon_cnt.groupby(['YEA', 'MON'])["CNT"].sum().reset_index()
 pre_mon = mon_new['MON'][-1:].values[0]
 pre_year = mon_new['YEA'][-1:].values[0]
-
+#print(pre_mon, pre_year)
+last_pre_mon = mon_new['MON'][-2:].values[0]
+last_pre_year = mon_new['YEA'][-2:].values[0]
+#print(last_pre_mon, last_pre_year)
 this_new  = mon_new[(mon_new['YEA']==pre_year) & (mon_new['MON']==pre_mon)]['CNT'].values[0]
 this_used = mon_used[(mon_used['YEA']==pre_year) & (mon_used['MON']==pre_mon)]['CNT'].values[0]
 this_er   = mon_er[(mon_er['YEA']==pre_year) & (mon_er['MON']==pre_mon)]['CNT'].values[0]
-last_new  = mon_new[(mon_new['YEA']==pre_year) & (mon_new['MON']==pre_mon-1)]['CNT'].values[0]
-last_used = mon_used[(mon_used['YEA']==pre_year) & (mon_used['MON']==pre_mon-1)]['CNT'].values[0]
-last_er   = mon_er[(mon_er['YEA']==pre_year) & (mon_er['MON']==pre_mon-1)]['CNT'].values[0]
+last_new  = mon_new[(mon_new['YEA']==last_pre_year) & (mon_new['MON']==last_pre_mon)]['CNT'].values[0]
+last_used = mon_used[(mon_used['YEA']==last_pre_year) & (mon_used['MON']==last_pre_mon)]['CNT'].values[0]
+last_er   = mon_er[(mon_er['YEA']==last_pre_year) & (mon_er['MON']==last_pre_mon)]['CNT'].values[0]
 def cal(x,y):
     return round((x-y)/y, 4)
 
@@ -206,7 +210,7 @@ with tab1:
     new_col1, new_col2 = st.columns([2, 2], gap="large")
     with new_col1:
         st.subheader(f"{month}월 {segment}별 신차등록 점유율")
-        df_sz = new_seg[new_seg['EXTRACT_DE']=='202509'].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        df_sz = new_seg[new_seg['EXTRACT_DE']==str(year)+str(month)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
         new_sz = px.pie(df_sz, values="CNT", names=seg_dict[segment][0], hole=.3,
                         category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(new_sz, use_container_width=True)
@@ -320,7 +324,7 @@ with tab2:
     used_col1, used_col2 = st.columns([2, 2], gap="large")
     with used_col1:
         st.subheader(f"{month}월 {segment}별 이전등록 점유율")
-        df_us = used_seg[used_seg['EXTRACT_DE']=='202509'].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        df_us = used_seg[used_seg['EXTRACT_DE']==str(year)+str(month)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
         us_plot = px.pie(df_us, values="CNT", names=seg_dict[segment][0], hole=.3,
                          category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(us_plot, use_container_width=True)
@@ -434,7 +438,7 @@ with tab3:
     er_col1, er_col2 = st.columns([2, 2], gap="large")
     with er_col1:
         st.subheader(f"{month}월 {segment}별 말소등록 점유율")
-        df_er = er_seg[er_seg['EXTRACT_DE']=='202509'].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        df_er = er_seg[er_seg['EXTRACT_DE']==str(year)+str(month)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
         er_plot = px.pie(df_er, values="CNT", names=seg_dict[segment][0], hole=.3,
                          category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(er_plot, use_container_width=True)

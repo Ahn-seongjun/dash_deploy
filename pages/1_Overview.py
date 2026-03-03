@@ -210,7 +210,7 @@ with tab1:
     segment = st.selectbox("세부 구분", seg, key="new")
     new_col1, new_col2 = st.columns([2, 2], gap="large")
     with new_col1:
-        st.subheader(f"{month}월 {segment}별 신차등록 점유율")
+        st.subheader(f"{str(max_date)[-2:]}월 {segment}별 신차등록 점유율")
         df_sz = new_seg[new_seg['EXTRACT_DE']==str(max_date)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
 
         new_sz = px.pie(df_sz, values="CNT", names=seg_dict[segment][0], hole=.3,
@@ -325,7 +325,7 @@ with tab2:
     segment = st.selectbox("세부 구분", seg, key="used")
     used_col1, used_col2 = st.columns([2, 2], gap="large")
     with used_col1:
-        st.subheader(f"{month}월 {segment}별 이전등록 점유율")
+        st.subheader(f"{str(max_date)[-2:]}월 {segment}별 이전등록 점유율")
         df_us = used_seg[used_seg['EXTRACT_DE']==str(max_date)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
         us_plot = px.pie(df_us, values="CNT", names=seg_dict[segment][0], hole=.3,
                          category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
@@ -439,7 +439,7 @@ with tab3:
     segment = st.selectbox("세부 구분", seg, key="ersr")
     er_col1, er_col2 = st.columns([2, 2], gap="large")
     with er_col1:
-        st.subheader(f"{month}월 {segment}별 말소등록 점유율")
+        st.subheader(f"{str(max_date)[-2:]}월 {segment}별 말소등록 점유율")
         df_er = er_seg[er_seg['EXTRACT_DE']==str(max_date)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
         er_plot = px.pie(df_er, values="CNT", names=seg_dict[segment][0], hole=.3,
                          category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
@@ -476,9 +476,10 @@ elif reg_kind == '이전':
 else:
     df_detail = er_mon_cnt.copy()
 
-base_month = month_ago.strftime('%Y-%m')
-
-# ✅ overview_def 사용 복구
+#base_month = month_ago.strftime('%Y-%m')
+#print(type(max_date))
+dt = datetime.strptime(max_date, "%Y%m")
+base_month = dt.strftime("%Y-%m")
 
 tbl_mom = od.compute_change_table(df_detail, feat_dict[dim_col], base_month, mode="MoM")
 fig_mom = od.plot_top_bottom_toggle(tbl_mom, feat_dict[dim_col], topn=5, title_prefix="MoM", show_periods=False)

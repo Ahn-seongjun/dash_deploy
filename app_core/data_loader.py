@@ -49,9 +49,9 @@ def get_overview_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]
         seg_wb = load_workbook(p_seg, sheets=["신규","이전","말소"])
     except:
         nodata = datetime(today.year, today.month, today.day) + relativedelta(months=-2)
-        premon = "{}".format(nodata.strftime('%m'))
-        p_top = base / f"25{premon}_top.xlsx"
-        p_seg = base / f"25{premon}차급외형연료.xlsx"
+        preyearmon = "{}".format(nodata.strftime('%y%m'))
+        p_top = base / f"{preyearmon}_top.xlsx"
+        p_seg = base / f"{preyearmon}차급외형연료.xlsx"
         top_wb = load_workbook(p_top, sheets=["신규","이전","말소"])
         mon_wb = load_workbook(p_mon, sheets=["신규","이전","말소"])
         seg_wb = load_workbook(p_seg, sheets=["신규","이전","말소"])

@@ -32,12 +32,13 @@ er_mon_cnt  = data["er_mon_cnt"]
 new_seg     = data["new_seg"]
 used_seg    = data["used_seg"]
 er_seg      = data["er_seg"]
+
 # =============================
 # 2) 전처리
 # =============================
 for df in (new_seg, used_seg, er_seg):
     df["EXTRACT_DE"] = df["EXTRACT_DE"].astype(str)
-
+max_date = new_seg.EXTRACT_DE.max() # 데이터 기준일 최대 날짜
 today = datetime.today()
 month_ago = datetime(today.year, today.month, today.day) + relativedelta(months=-1)
 year = today.year
@@ -210,7 +211,8 @@ with tab1:
     new_col1, new_col2 = st.columns([2, 2], gap="large")
     with new_col1:
         st.subheader(f"{month}월 {segment}별 신차등록 점유율")
-        df_sz = new_seg[new_seg['EXTRACT_DE']==str(year)+str(month)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        df_sz = new_seg[new_seg['EXTRACT_DE']==str(max_date)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
+
         new_sz = px.pie(df_sz, values="CNT", names=seg_dict[segment][0], hole=.3,
                         category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(new_sz, use_container_width=True)
@@ -324,7 +326,7 @@ with tab2:
     used_col1, used_col2 = st.columns([2, 2], gap="large")
     with used_col1:
         st.subheader(f"{month}월 {segment}별 이전등록 점유율")
-        df_us = used_seg[used_seg['EXTRACT_DE']==str(year)+str(month)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        df_us = used_seg[used_seg['EXTRACT_DE']==str(max_date)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
         us_plot = px.pie(df_us, values="CNT", names=seg_dict[segment][0], hole=.3,
                          category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(us_plot, use_container_width=True)
@@ -438,7 +440,7 @@ with tab3:
     er_col1, er_col2 = st.columns([2, 2], gap="large")
     with er_col1:
         st.subheader(f"{month}월 {segment}별 말소등록 점유율")
-        df_er = er_seg[er_seg['EXTRACT_DE']==str(year)+str(month)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
+        df_er = er_seg[er_seg['EXTRACT_DE']==str(max_date)].groupby([seg_dict[segment][0]])[['CNT']].sum().reset_index()
         er_plot = px.pie(df_er, values="CNT", names=seg_dict[segment][0], hole=.3,
                          category_orders={seg_dict[segment][0]: seg_dict[segment][1]})
         st.plotly_chart(er_plot, use_container_width=True)

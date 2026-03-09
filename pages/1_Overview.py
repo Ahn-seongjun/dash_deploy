@@ -78,7 +78,7 @@ new, used, ersr, op = st.columns(4)
 new.metric("신규 등록", format(this_new,','),  f"{cal(this_new, last_new)}%",  border=True)
 used.metric("이전 등록", format(this_used,','), f"{cal(this_used, last_used)}%", border=True)
 ersr.metric("말소 등록", format(this_er,','),   f"{cal(this_er, last_er)}%",    border=True)
-op.metric("운행 등록",   format(int(26536795),','), f"{cal(26536795, 26514873)}%", border=True)
+op.metric("운행 등록",   format(int(26570095),','), f"{cal(26570095, 26536795)}%", border=True)
 
 # 탭 스타일
 ui.apply_tab_style()

@@ -10,7 +10,7 @@ from app_core import footer
 from app_core import data_loader as dl
 from app_core import charts as ch
 from app_core import ui
-
+import streamlit.components.v1 as components
 st.title("말소 등록 요약")
 
 # 데이터 로딩 (ERSR 전용)
@@ -62,28 +62,99 @@ bot2left, bot2right = st.columns(2, gap="large")
 bot3le, bot3ri = st.columns(2, gap="large")
 
 with midleft_column:
-    st.subheader("국산 말소대수 TOP 10")
-    brand_na = (
-        df[df["CL_HMMD_IMP_SE_NM"] == "국산"]
-        .groupby("ORG_CAR_MAKER_KOR")[["val"]].sum()
-        .sort_values(by="val", ascending=False).head(10).reset_index()
-    )
-    br_na = ch.category_bar(brand_na, x="val", y="ORG_CAR_MAKER_KOR",
-                            color="ORG_CAR_MAKER_KOR", orientation="h",
-                            labels=dict(ORG_CAR_MAKER_KOR="브랜드", val="대수"))
-    br_na.update_layout(height=600, template="plotly_white", legend_title_text="브랜드")
-    st.plotly_chart(br_na, use_container_width=True)
+    value = 72  # 0~100
+    angle = -90 + (value / 100) * 180
 
-    mo_na_cnt = (
-        df[df["CL_HMMD_IMP_SE_NM"] == "국산"]
-        .groupby("CAR_MOEL_DT")[["val"]].sum()
-        .sort_values(by="val", ascending=False).head(10).reset_index()
-    )
-    mo_na = ch.category_bar(mo_na_cnt, x="val", y="CAR_MOEL_DT",
-                            color="CAR_MOEL_DT", orientation="h",
-                            labels=dict(CAR_MOEL_DT="모델", val="대수"))
-    mo_na.update_layout(height=600, template="plotly_white", legend_title_text="모델")
-    st.plotly_chart(mo_na, use_container_width=True)
+    svg = f"""
+    <div style="display:flex; justify-content:center;">
+    <svg width="760" height="430" viewBox="0 0 760 430" xmlns="http://www.w3.org/2000/svg">
+
+      <style>
+        .seg {{
+          stroke:#0b3558;
+          stroke-width:5;
+          stroke-linejoin:round;
+        }}
+        .label {{
+          font-family:Arial, sans-serif;
+          font-size:24px;
+          font-weight:800;
+          fill:white;
+        }}
+        .score {{
+          font-family:Arial, sans-serif;
+          font-size:42px;
+          font-weight:800;
+          fill:#0b3558;
+        }}
+        .needle {{
+          transform-origin:380px 300px;
+          transform:rotate({angle}deg);
+        }}
+      </style>
+
+      <!-- 5 equal segments -->
+      <path class="seg" fill="#f12b2b"
+            d="M90 300 A290 290 0 0 1 145.8 129.5 L217.3 181.4 A160 160 0 0 0 178.4 300 Z"/>
+      <path class="seg" fill="#ff6330"
+            d="M153.6 118.9 A290 290 0 0 1 290.4 24.2 L317.7 108.3 A160 160 0 0 0 222.3 174.3 Z"/>
+      <path class="seg" fill="#ffcc28"
+            d="M302.8 20.4 A290 290 0 0 1 457.2 20.4 L429.9 104.5 A160 160 0 0 0 330.1 104.5 Z"/>
+      <path class="seg" fill="#b7d933"
+            d="M469.6 24.2 A290 290 0 0 1 606.4 118.9 L537.7 174.3 A160 160 0 0 0 442.3 108.3 Z"/>
+      <path class="seg" fill="#159447"
+            d="M614.2 129.5 A290 290 0 0 1 670 300 L581.6 300 A160 160 0 0 0 542.7 181.4 Z"/>
+
+      <!-- labels only on both ends -->
+      <text x="150" y="280" class="label" text-anchor="middle">Very Low</text>
+      <text x="610" y="280" class="label" text-anchor="middle">Very High</text>
+
+      <!-- needle -->
+      <g class="needle">
+        <path d="M370 300 L380 140 L394 300 Z"
+              fill="#9a9a9a"
+              stroke="#0b3558"
+              stroke-width="5"
+              stroke-linejoin="round"/>
+        <path d="M384 150 L394 300 L380 300 Z"
+              fill="#777777"
+              opacity="0.45"/>
+      </g>
+
+      <!-- center knob -->
+      <circle cx="380" cy="300" r="38" fill="#9a9a9a" stroke="#0b3558" stroke-width="5"/>
+      <circle cx="380" cy="300" r="18" fill="white" stroke="#0b3558" stroke-width="5"/>
+
+      <!-- score -->
+      <text x="380" y="390" class="score" text-anchor="middle">Score: {value}</text>
+
+    </svg>
+    </div>
+    """
+
+    components.html(svg, height=440)
+    # st.subheader("국산 말소대수 TOP 10")
+    # brand_na = (
+    #     df[df["CL_HMMD_IMP_SE_NM"] == "국산"]
+    #     .groupby("ORG_CAR_MAKER_KOR")[["val"]].sum()
+    #     .sort_values(by="val", ascending=False).head(10).reset_index()
+    # )
+    # br_na = ch.category_bar(brand_na, x="val", y="ORG_CAR_MAKER_KOR",
+    #                         color="ORG_CAR_MAKER_KOR", orientation="h",
+    #                         labels=dict(ORG_CAR_MAKER_KOR="브랜드", val="대수"))
+    # br_na.update_layout(height=600, template="plotly_white", legend_title_text="브랜드")
+    # st.plotly_chart(br_na, use_container_width=True)
+    #
+    # mo_na_cnt = (
+    #     df[df["CL_HMMD_IMP_SE_NM"] == "국산"]
+    #     .groupby("CAR_MOEL_DT")[["val"]].sum()
+    #     .sort_values(by="val", ascending=False).head(10).reset_index()
+    # )
+    # mo_na = ch.category_bar(mo_na_cnt, x="val", y="CAR_MOEL_DT",
+    #                         color="CAR_MOEL_DT", orientation="h",
+    #                         labels=dict(CAR_MOEL_DT="모델", val="대수"))
+    # mo_na.update_layout(height=600, template="plotly_white", legend_title_text="모델")
+    # st.plotly_chart(mo_na, use_container_width=True)
 
 with midright_column:
     st.subheader("수입 말소대수 TOP 10")

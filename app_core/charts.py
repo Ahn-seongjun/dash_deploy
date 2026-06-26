@@ -93,12 +93,16 @@ def plot_top_bottom_toggle(tbl, dim_col, topn=5, title_prefix="증감률", show_
         text=botN["CHANGE_PCT"].round(2).astype(str) + "%",
         textposition="outside",
         marker=dict(color=color_by_sign(botN["CHANGE_PCT"])),
+        hovertemplate='%{y}: %{x:.2f}%<extra></extra>',
         visible=False
     ))
 
     # 공통 레이아웃
+    top_title = f"<b>{title_prefix} 상위 TOP {topn}{suffix}</b>"
+    bottom_title = f"<b>{title_prefix} 하위 TOP {topn}{suffix}</b>"
+
     fig.update_layout(
-        title=f"<b>{title_prefix} 상위 TOP {topn}{suffix}</b>",
+        title=dict(text=top_title),
         xaxis_title="증감률(%)",
         yaxis_title=dim_col,
         showlegend=False,
@@ -112,7 +116,7 @@ def plot_top_bottom_toggle(tbl, dim_col, topn=5, title_prefix="증감률", show_
                     method="update",
                     args=[
                         {"visible": [True, False]},
-                        {"title": f"<b>{title_prefix} 상위 TOP {topn}{suffix}</b>"}
+                        {"title": {"text": top_title}}
                     ]
                 ),
                 dict(
@@ -120,7 +124,7 @@ def plot_top_bottom_toggle(tbl, dim_col, topn=5, title_prefix="증감률", show_
                     method="update",
                     args=[
                         {"visible": [False, True]},
-                        {"title": f"<b>{title_prefix} 하위 TOP {topn}{suffix}</b>"}
+                        {"title": {"text": bottom_title}}
                     ]
                 ),
             ],

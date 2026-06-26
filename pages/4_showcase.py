@@ -1,1009 +1,863 @@
-import streamlit as st
-import polars as pl
-from streamlit_echarts import st_echarts, JsCode
-st.set_page_config(page_title="Summary Test", layout="wide", initial_sidebar_state="auto")
-import pandas as pd
 import warnings
-warnings.filterwarnings('ignore')
-from app_core.nav import render_sidebar_nav
-render_sidebar_nav()
+
+import pandas as pd
+import streamlit as st
+from streamlit_echarts import JsCode, st_echarts
+
 from app_core import footer
-from app_core import data_loader as dl
-from app_core import charts as ch
 from app_core import ui
-# --- CONSTANTS ---
-PRIORITIES = ["Critical", "High", "Medium", "Low"]
+from app_core.data_loader import get_newreg_data
+from app_core.nav import render_sidebar_nav
+
+warnings.filterwarnings("ignore")
+
+st.set_page_config(
+    page_title="신차등록 쇼케이스",
+    layout="wide",
+    initial_sidebar_state="auto",
+)
+render_sidebar_nav()
 
 
-# --- DATA LOADING ---
-#@st.cache_data
-# def get_dataset():
-#     df = pl.read_csv("data/global_superstore.csv", encoding="latin1")
-#     df = df.with_columns(
-#         pl.col("order_date").str.strptime(pl.Date, format="%d-%m-%Y"),
-#         pl.col("ship_date").str.strptime(pl.Date, format="%d-%m-%Y"),
-#     )
-#     return df
-#
-#
-# df = get_dataset()
+DOMESTIC_LABELS = {"국산", "국내", "국산차"}
 
-data = dl.get_newreg_data(base_dir="data/")
-df = data["dim"]
-df['EXTRACT_DE'] = pd.to_datetime(df['EXTRACT_DE'].astype(str), format='%Y%m%d')
-max_date = df["EXTRACT_DE"].max()
-#print(df["AGE"].unique())
-st.title(":material/bar_chart: ECharts Gallery")
+
+def format_count(value: float) -> str:
+    return f"{int(round(value)):,}"
+
+
+def format_pct(value: float) -> str:
+    return f"{value:.1f}%"
+
+
+def pct_change(current: float, previous: float) -> float | None:
+    if previous in (None, 0) or pd.isna(previous):
+        return None
+    return (current - previous) / previous * 100
+
+
+def safe_ratio(numerator: float, denominator: float) -> float:
+    if denominator == 0:
+        return 0.0
+    return numerator / denominator
+
+
+def build_period_mask(series: pd.Series, months: int | None) -> pd.Series:
+    if months is None:
+        return pd.Series(True, index=series.index)
+    latest = series.max()
+    start = latest - pd.DateOffset(months=months - 1)
+    return series >= start
+
+
+def summarize_monthly(df: pd.DataFrame) -> pd.DataFrame:
+    monthly = (
+        df.assign(month=df["EXTRACT_DE"].dt.to_period("M").dt.to_timestamp())
+        .groupby("month", as_index=False)["CNT"]
+        .sum()
+        .sort_values("month")
+    )
+    monthly["mom_pct"] = monthly["CNT"].pct_change() * 100
+    return monthly
+
+
+def top_share(df: pd.DataFrame, group_col: str) -> tuple[str, float]:
+    grouped = (
+        df.groupby(group_col, dropna=False)["CNT"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+    if grouped.empty:
+        return "-", 0.0
+    name = str(grouped.index[0])
+    share = safe_ratio(float(grouped.iloc[0]), float(grouped.sum())) * 100
+    return name, share
+
+
+def normalize_frame(frame: pd.DataFrame, metric_cols: list[str]) -> pd.DataFrame:
+    normalized = frame.copy()
+    for col in metric_cols:
+        max_value = normalized[col].max()
+        normalized[col] = 0 if max_value == 0 else normalized[col] / max_value * 100
+    return normalized
+
+
+def top_change_summary(df: pd.DataFrame, group_col: str) -> tuple[str, float, str, float]:
+    monthly_group = (
+        df.groupby(["month", group_col], as_index=False)["CNT"]
+        .sum()
+        .sort_values(["month", group_col])
+    )
+    latest = monthly_group["month"].max()
+    prev = monthly_group["month"].sort_values().unique()
+    if len(prev) < 2:
+        return "-", 0.0, "-", 0.0
+    prev_month = prev[-2]
+    latest_df = monthly_group[monthly_group["month"] == latest][[group_col, "CNT"]].rename(
+        columns={"CNT": "latest_cnt"}
+    )
+    prev_df = monthly_group[monthly_group["month"] == prev_month][[group_col, "CNT"]].rename(
+        columns={"CNT": "prev_cnt"}
+    )
+    change_df = latest_df.merge(prev_df, on=group_col, how="outer").fillna(0)
+    change_df["delta"] = change_df["latest_cnt"] - change_df["prev_cnt"]
+    inc_row = change_df.sort_values("delta", ascending=False).iloc[0]
+    dec_row = change_df.sort_values("delta", ascending=True).iloc[0]
+    return str(inc_row[group_col]), float(inc_row["delta"]), str(dec_row[group_col]), float(dec_row["delta"])
+
+
+data = get_newreg_data(base_dir="data/")
+df = data["dim"].copy()
+df["EXTRACT_DE"] = pd.to_datetime(df["EXTRACT_DE"].astype(str), format="%Y%m%d")
+df["month"] = df["EXTRACT_DE"].dt.to_period("M").dt.to_timestamp()
+df["CNT"] = pd.to_numeric(df["CNT"], errors="coerce").fillna(0)
+
+st.title(":material/dashboard: 신차등록현황 쇼케이스")
 st.markdown(
-    "This dashboard is a showcase of **streamlit-echarts**, demonstrating how to integrate "
-    "highly interactive ECharts visualizations into Streamlit apps using real-world enterprise data.  \n"
-    f"**Analysis period:** {df['EXTRACT_DE'].min()} to {max_date}"
+    "신차등록 데이터를 기준으로 **등록 규모, 최근 흐름, 구성 변화**를 한눈에 볼 수 있게 정리한 요약형 대시보드입니다.  \n"
+    f"분석 기준월: **{df['month'].max().strftime('%Y-%m')}**"
 )
 
-# --- SIDEBAR: Filters + Info ---
 with st.sidebar:
-    st.title(":material/filter_alt: Filters")
-    selected_period = st.selectbox(
-        "Reporting Period",
-        ["3 Months", "6 Months", "12 Months", "24 Months", "36 Months", "All Time"],
-        index=3,
-        key="period",
-        bind="query-params",
+    st.title(":material/filter_alt: 필터")
+    period_label = st.selectbox(
+        "조회 기간",
+        ["최근 3개월", "최근 6개월", "최근 12개월", "전체"],
+        index=1,
+    )
+    period_map = {"최근 3개월": 3, "최근 6개월": 6, "최근 12개월": 12, "전체": None}
+
+    selected_origin = st.multiselect(
+        "국산/외산",
+        sorted(df["CL_HMMD_IMP_SE_NM"].dropna().astype(str).unique().tolist()),
+    )
+    selected_brand = st.multiselect(
+        "브랜드",
+        sorted(df["ORG_CAR_MAKER_KOR"].dropna().astype(str).unique().tolist()),
+    )
+    selected_body = st.multiselect(
+        "차형",
+        sorted(df["CAR_BT"].dropna().astype(str).unique().tolist()),
+    )
+    selected_fuel = st.multiselect(
+        "연료",
+        sorted(df["FUEL"].dropna().astype(str).unique().tolist()),
+    )
+    selected_owner = st.multiselect(
+        "소유자구분",
+        sorted(df["OWNER_GB"].dropna().astype(str).unique().tolist()),
     )
     selected_age = st.multiselect(
-        "AGE",
-        options=sorted(df["AGE"].unique()),
-        default=[],
-        key="AGE",
-        bind="query-params",
+        "연령대",
+        sorted(df["AGE"].dropna().astype(str).unique().tolist()),
     )
-    selected_bt = st.multiselect(
-        "BodyType",
-        options=sorted(df["CAR_BT"].unique()),
-        default=[],
-        key="BodyType",
-        bind="query-params",
-    )
-    # Sub-category options depend on selected categories
-    # if selected_categories:
-    #     sub_cat_options = sorted(
-    #         df.filter(pl.col("CAR_SZ").is_in(selected_categories))["sub_category"]
-    #         .unique()
-    #         .to_list()
-    #     )
-    # else:
-    #     sub_cat_options = sorted(df["sub_category"].unique().to_list())
-    # selected_sub_categories = st.multiselect(
-    #     "Sub-Category",
-    #     options=sub_cat_options,
-    #     default=[],
-    #     key="sub_category",
-    #     bind="query-params",
-    # )
-    # selected_segment = st.selectbox(
-    #     "Customer Segment",
-    #     options=["All"] + sorted(df["segment"].unique().to_list()),
-    #     key="segment",
-    #     bind="query-params",
-    # )
     ui.sidebar_links()
 
-# --- FILTER LOGIC ---
+mask = build_period_mask(df["month"], period_map[period_label])
+filtered_df = df.loc[mask].copy()
 
-# 1. Date Filtering
-period_offsets = {
-    "3 Months": "-3mo",
-    "6 Months": "-6mo",
-    "12 Months": "-1y",
-    "24 Months": "-2y",
-    "36 Months": "-3y",
-}
-if selected_period in period_offsets:
-    offset = period_offsets[selected_period]
-    current_start = pl.select(pl.lit(max_date).dt.offset_by(offset)).item()
-    prev_start = pl.select(pl.lit(current_start).dt.offset_by(offset)).item()
-else:  # All Time
-    current_start = df["EXTRACT_DE"].min()
-    prev_start = None
+if selected_origin:
+    filtered_df = filtered_df[filtered_df["CL_HMMD_IMP_SE_NM"].isin(selected_origin)]
+if selected_brand:
+    filtered_df = filtered_df[filtered_df["ORG_CAR_MAKER_KOR"].isin(selected_brand)]
+if selected_body:
+    filtered_df = filtered_df[filtered_df["CAR_BT"].isin(selected_body)]
+if selected_fuel:
+    filtered_df = filtered_df[filtered_df["FUEL"].isin(selected_fuel)]
+if selected_owner:
+    filtered_df = filtered_df[filtered_df["OWNER_GB"].isin(selected_owner)]
+if selected_age:
+    filtered_df = filtered_df[filtered_df["AGE"].isin(selected_age)]
 
-# 2. Categorical Filtering
-def apply_categorical_filters(_base_df, AGE, BodyType):
-    filtered = _base_df.copy()
-    if AGE:
-        filtered = filtered[filtered["AGE"].isin(AGE)]
-    if BodyType:
-        filtered = filtered[filtered["BodyType"].isin(BodyType)]
-    # if sub_categories:
-    #     filtered = filtered[filtered["sub_category"].isin(sub_categories)]
-    # if segment != "All":
-    #     filtered = filtered[filtered["segment"] == segment]
-    return filtered
+if filtered_df.empty:
+    st.warning("선택한 조건에 해당하는 데이터가 없습니다. 필터를 조정해 주세요.")
+    footer.render()
+    st.stop()
 
-
-current_df = apply_categorical_filters(
-    df[df["EXTRACT_DE"] > current_start],
-    selected_age,
-    selected_bt
+monthly_summary = summarize_monthly(filtered_df)
+latest_month = monthly_summary["month"].max()
+latest_month_value = float(
+    monthly_summary.loc[monthly_summary["month"] == latest_month, "CNT"].iloc[0]
 )
-
-# Previous period
-if prev_start:
-    prev_df = apply_categorical_filters(
-        df[
-            (df["EXTRACT_DE"] > prev_start)
-            & (df["EXTRACT_DE"] <= current_start)
-        ],
-        selected_age,
-        selected_bt,
-    )
-else:
-    prev_df = None
-
-
-# ==========================================
-# ROW 1: KPIs (4 metrics)
-# ==========================================
-def get_kpis(data):
-    if data is None or data.empty:
-        return pd.DataFrame(
-            {
-                "total_revenue": [0.0],
-                # "profit_margin": [0.0],
-                # "total_orders": [0],
-                # "avg_order_value": [0.0],
-            }
-        )
-
-    total_REG = data["CNT"].sum()
-    # total_profit = data["profit"].sum()
-    # n_orders = data["order_id"].nunique()
-
-    return pd.DataFrame(
-        {
-            "total_revenue": [total_REG],
-            # "profit_margin": [(total_profit / total_REG * 100) if total_REG else 0.0],
-            # "total_orders": [n_orders],
-            # "avg_order_value": [(total_REG / n_orders) if n_orders else 0.0],
-        }
-    )
-
-
-current_kpis = get_kpis(current_df)
-prev_kpis = get_kpis(prev_df)
-
-
-def get_delta(curr, prev, is_pct=False):
-    if prev is None or prev == 0:
-        return None
-    if is_pct:
-        return f"{curr - prev:+.1f}%"
-    return f"{(curr - prev) / prev * 100:+.1f}%"
-
-
-# Sparkline data: monthly aggregates over the current period
-sparkline_df = (
-    current_df.assign(month=current_df["EXTRACT_DE"].dt.to_period("M").dt.to_timestamp())
-    .groupby("month", as_index=False)
-    .agg(
-        revenue=("CNT", "sum"),
-        #profit=("profit", "sum"),
-        #orders=("order_id", "nunique"),
-    )
-    .sort_values("month")
+previous_month_value = (
+    float(monthly_summary.iloc[-2]["CNT"]) if len(monthly_summary) > 1 else None
 )
+latest_delta = pct_change(latest_month_value, previous_month_value)
 
-if sparkline_df.empty:
-    spark_revenue = spark_margin = spark_orders = spark_aov = None
-else:
-    spark_revenue = sparkline_df["revenue"].tolist()
-    #spark_profit = sparkline_df["profit"].tolist()
-    #spark_orders = sparkline_df["orders"].tolist()
-    # spark_margin = [
-    #     round(p / r * 100, 1) if r else 0 for r, p in zip(spark_revenue, spark_profit)
-    # ]
-    # spark_aov = [
-    #     round(r / o, 0) if o else 0 for r, o in zip(spark_revenue, spark_orders)
-    # ]
+total_cnt = float(filtered_df["CNT"].sum())
+domestic_cnt = float(
+    filtered_df.loc[
+        filtered_df["CL_HMMD_IMP_SE_NM"].astype(str).isin(DOMESTIC_LABELS), "CNT"
+    ].sum()
+)
+domestic_share = safe_ratio(domestic_cnt, total_cnt) * 100
+
+top_brand_name, top_brand_share = top_share(filtered_df, "ORG_CAR_MAKER_KOR")
+top_body_name, top_body_share = top_share(filtered_df, "CAR_BT")
+top_fuel_name, top_fuel_share = top_share(filtered_df, "FUEL")
+inc_fuel_name, inc_fuel_delta, _, _ = top_change_summary(filtered_df, "FUEL")
+_, _, dec_body_name, dec_body_delta = top_change_summary(filtered_df, "CAR_BT")
+
+brand_share_df = (
+    filtered_df.groupby("ORG_CAR_MAKER_KOR", as_index=False)["CNT"]
+    .sum()
+    .sort_values("CNT", ascending=False)
+)
+top3_brand_share = safe_ratio(brand_share_df.head(3)["CNT"].sum(), brand_share_df["CNT"].sum()) * 100
+
+sparkline = monthly_summary["CNT"].tolist()
 
 col1, col2, col3, col4 = st.columns(4)
-
 with col1:
-    val = current_kpis["total_revenue"][0] or 0
-    delta = (
-        get_delta(val, prev_kpis["total_revenue"][0]) if prev_kpis is not None else None
-    )
     st.metric(
-        "Total Revenue",
-        f"${val:,.0f}",
-        delta=delta,
+        "선택 기간 총 등록대수",
+        format_count(total_cnt),
         border=True,
-        chart_data=spark_revenue,
+        chart_data=sparkline,
+        chart_type="area",
+    )
+with col2:
+    st.metric(
+        "최근월 등록대수",
+        format_count(latest_month_value),
+        None if latest_delta is None else format_pct(latest_delta),
+        border=True,
+        chart_data=sparkline,
+        chart_type="bar",
+    )
+with col3:
+    st.metric(
+        "국산 비중",
+        format_pct(domestic_share),
+        f"외산 {format_pct(100 - domestic_share)}",
+        border=True,
+        chart_data=sparkline,
+        chart_type="line",
+    )
+with col4:
+    st.metric(
+        "1위 브랜드 점유율",
+        format_pct(top_brand_share),
+        top_brand_name,
+        border=True,
+        chart_data=sparkline,
         chart_type="area",
     )
 
-with col2:
-    val = current_kpis["profit_margin"][0] or 0
-    delta = (
-        get_delta(val, prev_kpis["profit_margin"][0], is_pct=True)
-        if prev_kpis is not None
-        else None
-    )
-    st.metric(
-        "Profit Margin",
-        f"{val:.1f}%",
-        delta=delta,
-        border=True,
-        chart_data=spark_margin,
-        chart_type="line",
-    )
-
-with col3:
-    val = current_kpis["total_orders"][0] or 0
-    delta = (
-        get_delta(val, prev_kpis["total_orders"][0]) if prev_kpis is not None else None
-    )
-    st.metric(
-        "Total Orders",
-        f"{val:,}",
-        delta=delta,
-        border=True,
-        chart_data=spark_orders,
-        chart_type="bar",
-    )
-
-with col4:
-    val = current_kpis["avg_order_value"][0] or 0
-    delta = (
-        get_delta(val, prev_kpis["avg_order_value"][0])
-        if prev_kpis is not None
-        else None
-    )
-    st.metric(
-        "Avg. Order Value",
-        f"${val:,.0f}",
-        delta=delta,
-        border=True,
-        chart_data=spark_aov,
-        chart_type="line",
-    )
-
-# ==========================================
-# ROW 2: "How are we trending?"
-# ==========================================
-st.subheader(":material/trending_up: How are we trending?")
 st.caption(
-    "Track revenue and profit over time with smart aggregation, and spot month-over-month momentum shifts."
+    f"최근월 기준 최다 차형은 **{top_body_name}**이며, 비중은 **{format_pct(top_body_share)}**입니다."
 )
+
+st.markdown(
+    f"""
+    <div style="padding:16px 18px; border:1px solid #dbeafe; border-radius:18px; background:linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); margin:10px 0 18px 0;">
+      <div style="font-size:15px; color:#0f172a; font-weight:700; margin-bottom:6px;">이번 달 한줄 요약</div>
+      <div style="font-size:14px; color:#334155; line-height:1.6;">
+        최근월 등록은 <b>{format_count(latest_month_value)}대</b>로 전월 대비 <b>{format_pct(latest_delta or 0)}</b> 움직였고,
+        최다 브랜드는 <b>{top_brand_name}</b>, 최다 연료는 <b>{top_fuel_name}</b>입니다.
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+insight_col1, insight_col2 = st.columns(2)
+with insight_col1:
+    st.info(
+        f"상위 3개 브랜드가 전체 등록의 **{format_pct(top3_brand_share)}**를 차지합니다. 시장 집중도를 빠르게 볼 수 있는 지표입니다."
+    )
+with insight_col2:
+    st.info(
+        f"최근월 기준 증가폭 1위 연료는 **{inc_fuel_name}** ({format_count(inc_fuel_delta)}대), 감소폭이 큰 차형은 **{dec_body_name}** ({format_count(abs(dec_body_delta))}대)입니다."
+    )
+
+st.subheader(":material/trending_up: 등록 추이")
+st.caption("최근 신차등록 흐름과 전월 대비 증감률을 함께 확인합니다.")
 row2_1, row2_2 = st.columns([3, 2], gap="small")
 
 with row2_1:
-    # Smart aggregation based on period
-    if selected_period == "1 Month":
-        trunc_rule = None  # daily — no truncation
-        date_fmt = "%Y-%m-%d"
-    elif selected_period == "3 Months":
-        trunc_rule = "1w"
-        date_fmt = "%Y-%m-%d"
-    else:
-        trunc_rule = "1mo"
-        date_fmt = "%Y-%m"
-
-    if trunc_rule:
-        trend_df = (
-            current_df.with_columns(
-                pl.col("order_date").dt.truncate(trunc_rule).alias("period_date")
-            )
-            .group_by("period_date")
-            .agg(
-                pl.col("sales").sum().alias("revenue"),
-                pl.col("profit").sum().alias("profit"),
-            )
-            .sort("period_date")
-        )
-    else:
-        trend_df = (
-            current_df.group_by("order_date")
-            .agg(
-                pl.col("sales").sum().alias("revenue"),
-                pl.col("profit").sum().alias("profit"),
-            )
-            .sort("order_date")
-            .rename({"order_date": "period_date"})
-        )
-
-    if trend_df.is_empty():
-        st.info("No data for the selected filters.")
-    else:
-        dates = trend_df["period_date"].dt.to_string(date_fmt).to_list()
-
-        trend_opts = {
-            "title": {"text": "Revenue & Profit Trend", "left": "center", "top": 5},
-            "toolbox": {
-                "feature": {
-                    "saveAsImage": {},
-                    "dataView": {"readOnly": True},
-                    "restore": {},
-                    "magicType": {"type": ["line", "bar"]},
-                }
-            },
-            "tooltip": {
-                "trigger": "axis",
-                "valueFormatter": JsCode(
-                    "function(v){return '$'+Math.round(v).toLocaleString()}"
-                ),
-            },
-            "legend": {"bottom": "0"},
-            "xAxis": {"type": "category", "data": dates},
-            "yAxis": {"type": "value"},
-            "dataZoom": [
-                {"type": "inside", "start": 0, "end": 100},
-                {"type": "slider", "start": 0, "end": 100, "height": 20, "bottom": 30},
-            ],
-            "grid": {"bottom": "18%"},
-            "series": [
-                {
-                    "name": "Revenue",
-                    "type": "line",
-                    "smooth": True,
-                    "areaStyle": {"opacity": 0.1},
-                    "data": trend_df["revenue"].to_list(),
-                },
-                {
-                    "name": "Profit",
-                    "type": "line",
-                    "smooth": True,
-                    "data": trend_df["profit"].to_list(),
-                },
-            ],
-        }
-        st_echarts(options=trend_opts, height="400px", key="trend", theme="streamlit")
+    trend_options = {
+        "title": {"text": "월별 등록대수 추이", "left": "center", "top": 5},
+        "tooltip": {
+            "trigger": "axis",
+            "valueFormatter": JsCode(
+                "function(v){return Math.round(v).toLocaleString()+'대'}"
+            ),
+        },
+        "toolbox": {
+            "feature": {
+                "saveAsImage": {},
+                "dataView": {"readOnly": True},
+                "restore": {},
+                "magicType": {"type": ["line", "bar"]},
+            }
+        },
+        "legend": {"bottom": "0"},
+        "xAxis": {
+            "type": "category",
+            "data": monthly_summary["month"].dt.strftime("%Y-%m").tolist(),
+        },
+        "yAxis": {"type": "value", "name": "등록대수"},
+        "grid": {"bottom": "18%"},
+        "dataZoom": [
+            {"type": "inside", "start": 0, "end": 100},
+            {"type": "slider", "start": 0, "end": 100, "height": 18, "bottom": 28},
+        ],
+        "series": [
+            {
+                "name": "등록대수",
+                "type": "line",
+                "smooth": True,
+                "areaStyle": {"opacity": 0.12},
+                "lineStyle": {"width": 3, "color": "#1d4ed8"},
+                "itemStyle": {"color": "#1d4ed8"},
+                "data": monthly_summary["CNT"].round(0).astype(int).tolist(),
+            }
+        ],
+    }
+    st_echarts(options=trend_options, height="400px", key="showcase_trend")
 
 with row2_2:
-    # MoM Revenue Growth
-    mom_df = (
-        current_df.with_columns(pl.col("order_date").dt.truncate("1mo").alias("month"))
-        .group_by("month")
-        .agg(pl.col("sales").sum().alias("revenue"))
-        .sort("month")
-    )
-
-    if mom_df.height <= 2:
-        st.info("Need at least 3 months of data to show growth.")
+    growth_df = monthly_summary.dropna(subset=["mom_pct"]).copy()
+    if growth_df.empty:
+        st.info("증감률을 표시하려면 2개월 이상 데이터가 필요합니다.")
     else:
-        mom_df = mom_df.with_columns(
-            (
-                (pl.col("revenue") - pl.col("revenue").shift(1))
-                / pl.col("revenue").shift(1)
-                * 100
-            ).alias("growth_pct")
-        ).drop_nulls("growth_pct")
-
-        months = mom_df["month"].dt.to_string("%Y-%m").to_list()
-        growth_vals = mom_df["growth_pct"].round(1).to_list()
-
-        # Conditional coloring: green for positive, red for negative
-        bar_data = []
-        for v in growth_vals:
-            color = "#91cc75" if v >= 0 else "#ee6666"
-            bar_data.append({"value": v, "itemStyle": {"color": color}})
-
-        mom_opts = {
-            "title": {"text": "MoM Revenue Growth", "left": "center", "top": 5},
-            "toolbox": {
-                "feature": {
-                    "saveAsImage": {},
-                    "dataView": {"readOnly": True},
-                    "restore": {},
+        growth_series = []
+        for value in growth_df["mom_pct"].tolist():
+            growth_series.append(
+                {
+                    "value": round(value, 1),
+                    "itemStyle": {"color": "#16a34a" if value >= 0 else "#dc2626"},
                 }
+            )
+
+        growth_options = {
+            "title": {"text": "전월 대비 증감률", "left": "center", "top": 5},
+            "tooltip": {"trigger": "axis", "formatter": "{b}<br/>{c}%"},
+            "xAxis": {
+                "type": "category",
+                "data": growth_df["month"].dt.strftime("%Y-%m").tolist(),
+                "axisLabel": {"rotate": 35},
             },
-            "tooltip": {"trigger": "axis", "formatter": "{b}<br/>Growth: {c}%"},
-            "xAxis": {"type": "category", "data": months, "axisLabel": {"rotate": 45}},
             "yAxis": {"type": "value", "axisLabel": {"formatter": "{value}%"}},
-            "grid": {"bottom": "20%", "containLabel": True},
-            "series": [{"type": "bar", "data": bar_data, "label": {"show": False}}],
+            "grid": {"bottom": "18%", "containLabel": True},
+            "series": [{"type": "bar", "data": growth_series}],
         }
-        st_echarts(
-            options=mom_opts, height="400px", key="mom_growth", theme="streamlit"
+        st_echarts(options=growth_options, height="400px", key="showcase_growth")
+
+st.subheader(":material/insights: 추가 인사이트")
+st.caption("신차등록 요약 페이지를 보완할 수 있는 핵심 포인트만 가볍게 추가했습니다.")
+extra_1, extra_2 = st.columns(2)
+
+with extra_1:
+    top_brand_chart = brand_share_df.head(5).sort_values("CNT", ascending=True)
+    top_brand_options = {
+        "title": {"text": "상위 브랜드 집중도", "left": "center"},
+        "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
+        "grid": {"left": "4%", "right": "4%", "bottom": "8%", "containLabel": True},
+        "xAxis": {"type": "value"},
+        "yAxis": {"type": "category", "data": top_brand_chart["ORG_CAR_MAKER_KOR"].astype(str).tolist()},
+        "series": [
+            {
+                "type": "bar",
+                "data": top_brand_chart["CNT"].round(0).astype(int).tolist(),
+                "itemStyle": {"color": "#3b82f6", "borderRadius": [0, 10, 10, 0]},
+                "label": {"show": True, "position": "right"},
+            }
+        ],
+    }
+    st_echarts(options=top_brand_options, height="340px", key="showcase_brand_focus")
+
+with extra_2:
+    origin_fuel_mix = (
+        filtered_df.groupby(["CL_HMMD_IMP_SE_NM", "FUEL"], as_index=False)["CNT"]
+        .sum()
+    )
+    origin_order = (
+        origin_fuel_mix.groupby("CL_HMMD_IMP_SE_NM")["CNT"].sum().sort_values(ascending=False).index.tolist()
+    )
+    fuel_order = (
+        origin_fuel_mix.groupby("FUEL")["CNT"].sum().sort_values(ascending=False).index.tolist()
+    )
+    origin_fuel_series = []
+    for fuel in fuel_order:
+        values = []
+        for origin in origin_order[::-1]:
+            subset = origin_fuel_mix[
+                (origin_fuel_mix["CL_HMMD_IMP_SE_NM"] == origin)
+                & (origin_fuel_mix["FUEL"] == fuel)
+            ]["CNT"]
+            values.append(int(subset.iloc[0]) if not subset.empty else 0)
+        origin_fuel_series.append(
+            {
+                "name": str(fuel),
+                "type": "bar",
+                "stack": "total",
+                "emphasis": {"focus": "series"},
+                "data": values,
+            }
         )
 
-# ==========================================
-# ROW 3: "Where & What?"
-# ==========================================
-st.subheader(":material/explore: Where & What?")
-st.caption(
-    "Break down performance by category, market, and product to see where revenue and margins concentrate."
-)
+    origin_fuel_options = {
+        "title": {"text": "국산/외산별 연료 구성", "left": "center"},
+        "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
+        "legend": {"bottom": "0", "type": "scroll"},
+        "grid": {"left": "4%", "right": "4%", "bottom": "14%", "containLabel": True},
+        "xAxis": {"type": "value"},
+        "yAxis": {"type": "category", "data": origin_order[::-1]},
+        "series": origin_fuel_series,
+    }
+    st_echarts(options=origin_fuel_options, height="340px", key="showcase_origin_fuel")
+
+st.subheader(":material/explore: 구성 분석")
+st.caption("브랜드, 모델, 차형, 연료 기준으로 신차등록 구성을 요약합니다.")
 row3_1, row3_2, row3_3 = st.columns(3)
 
 with row3_1:
-    # Treemap: Category → Sub-Category (size=revenue, color=profit margin)
-    tree_df = (
-        current_df.group_by("category", "sub_category")
-        .agg(
-            pl.col("sales").sum().alias("revenue"),
-            pl.col("profit").sum().alias("profit_sum"),
-        )
-        .with_columns(
-            (
-                pl.col("profit_sum")
-                / pl.when(pl.col("revenue") != 0).then(pl.col("revenue")).otherwise(1)
-                * 100
-            ).alias("margin")
-        )
-        .drop("profit_sum")
+    brand_model = (
+        filtered_df.groupby(["ORG_CAR_MAKER_KOR", "CAR_MOEL_DT"], as_index=False)["CNT"]
+        .sum()
+        .sort_values("CNT", ascending=False)
     )
+    tree_data = []
+    for brand, group in brand_model.groupby("ORG_CAR_MAKER_KOR"):
+        children = [
+            {"name": str(row["CAR_MOEL_DT"]), "value": int(row["CNT"])}
+            for _, row in group.head(12).iterrows()
+        ]
+        tree_data.append({"name": str(brand), "children": children})
 
-    if tree_df.is_empty():
-        st.info("No data for treemap.")
-    else:
-        # Build hierarchical data
-        tree_data = []
-        for cat in sorted(tree_df["category"].unique().to_list()):
-            children = []
-            cat_rows = tree_df.filter(pl.col("category") == cat)
-            for row in cat_rows.to_dicts():
-                children.append(
+    treemap_options = {
+        "title": {"text": "브랜드-모델 Treemap", "left": "center"},
+        "tooltip": {
+            "formatter": JsCode(
+                "function(p){return p.name + '<br/>등록대수: ' + Math.round(p.value || 0).toLocaleString() + '대';}"
+            )
+        },
+        "series": [
+            {
+                "type": "treemap",
+                "data": tree_data,
+                "visibleMin": 50,
+                "roam": False,
+                "label": {"show": True, "formatter": "{b}"},
+                "upperLabel": {"show": True},
+                "breadcrumb": {"show": False},
+                "levels": [
                     {
-                        "name": row["sub_category"],
-                        "value": [round(row["revenue"], 2), round(row["margin"], 1)],
-                    }
-                )
-            tree_data.append({"name": cat, "children": children})
-
-        margin_min = tree_df["margin"].min()
-        margin_max = tree_df["margin"].max()
-
-        treemap_opts = {
-            "title": {"text": "Category → Sub-Category", "left": "center"},
-            "tooltip": {
-                "formatter": JsCode(
-                    "function(p){"
-                    "var v=p.value;"
-                    "if(!v||v.length<2)return p.name;"
-                    "return p.name+'<br/>Revenue: $'+v[0].toLocaleString()+'<br/>Margin: '+v[1].toFixed(1)+'%';"
-                    "}"
-                )
-            },
-            "visualMap": {
-                "type": "continuous",
-                "min": round(margin_min, 1) if margin_min is not None else -10,
-                "max": round(margin_max, 1) if margin_max is not None else 30,
-                "inRange": {"color": ["#ee6666", "#fac858", "#91cc75"]},
-                "dimension": 1,
-                "calculable": True,
-                "orient": "horizontal",
-                "left": "center",
-                "bottom": "0%",
-                "text": ["High Margin", "Low Margin"],
-            },
-            "series": [
-                {
-                    "type": "treemap",
-                    "data": tree_data,
-                    "visibleMin": 300,
-                    "roam": False,
-                    "visualDimension": 1,
-                    "levels": [
-                        {
-                            "itemStyle": {
-                                "borderColor": "#555",
-                                "borderWidth": 3,
-                                "gapWidth": 3,
-                            },
-                            "upperLabel": {"show": True, "height": 20, "color": "#fff"},
-                        },
-                        {
-                            "itemStyle": {
-                                "borderColor": "#aaa",
-                                "borderWidth": 1,
-                                "gapWidth": 1,
-                            },
-                            "emphasis": {"itemStyle": {"borderColor": "#333"}},
-                        },
-                    ],
-                }
-            ],
-        }
-        st_echarts(
-            options=treemap_opts, height="450px", key="treemap", theme="streamlit"
-        )
-
-with row3_2:
-    # Radar: Market Profiles (normalized)
-    radar_df = (
-        current_df.group_by("market")
-        .agg(
-            pl.col("sales").sum().alias("revenue"),
-            pl.col("profit").sum().alias("profit"),
-            pl.col("order_id").n_unique().alias("orders"),
-            pl.col("quantity").sum().alias("quantity"),
-        )
-        .with_columns(
-            (
-                pl.col("revenue")
-                / pl.when(pl.col("orders") != 0).then(pl.col("orders")).otherwise(1)
-            ).alias("aov")
-        )
-    )
-
-    if radar_df.is_empty():
-        st.info("No data for radar chart.")
-    else:
-        # Normalize each metric to 0-100
-        metrics = ["revenue", "profit", "orders", "aov", "quantity"]
-        metric_labels = ["Revenue", "Profit", "Orders", "AOV", "Quantity"]
-
-        normalized = radar_df.clone()
-        for m in metrics:
-            col_max = normalized[m].max()
-            if col_max and col_max != 0:
-                normalized = normalized.with_columns(
-                    (pl.col(m) / col_max * 100).alias(m)
-                )
-
-        indicator = [{"name": label, "max": 100} for label in metric_labels]
-
-        series_data = []
-        for row in normalized.to_dicts():
-            series_data.append(
-                {"name": row["market"], "value": [round(row[m], 1) for m in metrics]}
-            )
-
-        radar_opts = {
-            "title": {"text": "Market Profiles", "left": "center"},
-            "tooltip": {"trigger": "item"},
-            "legend": {
-                "bottom": "0",
-                "type": "scroll",
-                "data": [d["name"] for d in series_data],
-            },
-            "radar": {
-                "indicator": indicator,
-                "center": ["50%", "50%"],
-                "radius": "60%",
-            },
-            "series": [
-                {"type": "radar", "data": series_data, "areaStyle": {"opacity": 0.1}}
-            ],
-        }
-        st_echarts(options=radar_opts, height="450px", key="radar", theme="streamlit")
-
-with row3_3:
-    # Top 5 Sub-Categories by Market (stacked horizontal bar)
-    top5 = (
-        current_df.group_by("sub_category")
-        .agg(pl.col("sales").sum().alias("total"))
-        .sort("total", descending=True)
-        .head(5)
-    )
-    top5_names = top5["sub_category"].to_list()
-
-    if not top5_names:
-        st.info("No data for top 5 chart.")
-    else:
-        stacked_df = (
-            current_df.filter(pl.col("sub_category").is_in(top5_names))
-            .group_by("sub_category", "market")
-            .agg(pl.col("sales").sum().alias("sales"))
-        )
-        all_markets = sorted(stacked_df["market"].unique().to_list())
-        top5_series = []
-        for mkt in all_markets:
-            mkt_data = []
-            for sc in top5_names:
-                val = stacked_df.filter(
-                    (pl.col("sub_category") == sc) & (pl.col("market") == mkt)
-                )["sales"]
-                mkt_data.append(round(val[0], 2) if not val.is_empty() else 0)
-            top5_series.append(
-                {
-                    "name": mkt,
-                    "type": "bar",
-                    "stack": "total",
-                    "emphasis": {"focus": "series"},
-                    "data": mkt_data[::-1],
-                }
-            )
-
-        top5_opts = {
-            "title": {"text": "Top 5: Revenue by Market", "left": "center"},
-            "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
-            "legend": {"bottom": "0", "type": "scroll", "textStyle": {"fontSize": 10}},
-            "grid": {
-                "left": "3%",
-                "right": "4%",
-                "bottom": "15%",
-                "containLabel": True,
-            },
-            "xAxis": {"type": "value"},
-            "yAxis": {"type": "category", "data": top5_names[::-1]},
-            "series": top5_series,
-        }
-        st_echarts(
-            options=top5_opts, height="450px", key="top5_stacked_bar", theme="streamlit"
-        )
-
-
-# ==========================================
-# ROW 4: "Deep Dive" with @st.fragment
-# ==========================================
-@st.fragment
-def drill_down_section():
-    left, right = st.columns(2)
-
-    with left:
-        # Scatter: x=avg_discount%, y=profit_margin%, size=revenue per sub-category
-        sc_df = (
-            current_df.group_by("sub_category")
-            .agg(
-                (pl.col("discount").mean() * 100).alias("avg_discount"),
-                pl.col("profit").sum().alias("profit_sum"),
-                pl.col("sales").sum().alias("revenue"),
-            )
-            .with_columns(
-                (
-                    pl.col("profit_sum")
-                    / pl.when(pl.col("revenue") != 0)
-                    .then(pl.col("revenue"))
-                    .otherwise(1)
-                    * 100
-                ).alias("profit_margin")
-            )
-            .drop("profit_sum")
-            .sort("sub_category")
-        )
-
-        if sc_df.is_empty():
-            result = {"selection": {"point_indices": []}}
-            scatter_data = []
-            st.info("No data for scatter chart.")
-        else:
-            scatter_data = []
-            for row in sc_df.to_dicts():
-                scatter_data.append(
-                    [
-                        round(row["avg_discount"], 1),
-                        round(row["profit_margin"], 1),
-                        round(row["revenue"], 0),
-                        row["sub_category"],
-                    ]
-                )
-
-            rev_max = sc_df["revenue"].max() or 1
-
-            scatter_opts = {
-                "animation": False,
-                "title": {"text": "Discount vs Profit Margin", "left": "center"},
-                "tooltip": {
-                    "trigger": "item",
-                    "formatter": JsCode(
-                        "function(p){"
-                        "var v=p.value;"
-                        "return v[3]+'<br/>Discount: '+v[0]+'%<br/>Margin: '+v[1]+'%<br/>Revenue: $'+v[2].toLocaleString();"
-                        "}"
-                    ),
-                },
-                "xAxis": {"name": "Avg Discount %", "type": "value"},
-                "yAxis": {"name": "Profit Margin %", "type": "value"},
-                "visualMap": {
-                    "show": False,
-                    "dimension": 2,
-                    "min": 0,
-                    "max": float(rev_max),
-                    "inRange": {"symbolSize": [10, 50]},
-                },
-                "series": [
+                        "itemStyle": {
+                            "borderColor": "#ffffff",
+                            "borderWidth": 3,
+                            "gapWidth": 3,
+                        }
+                    },
                     {
-                        "type": "scatter",
-                        "data": scatter_data,
-                        "itemStyle": {"opacity": 0.7},
-                        "emphasis": {
-                            "itemStyle": {"borderColor": "#333", "borderWidth": 2}
-                        },
-                    }
+                        "itemStyle": {
+                            "borderColor": "#f3f4f6",
+                            "borderWidth": 1,
+                            "gapWidth": 1,
+                        }
+                    },
                 ],
             }
-            result = st_echarts(
-                options=scatter_opts,
-                height="450px",
-                key="drill_scatter",
-                theme="streamlit",
-                on_select="rerun",
-                selection_mode="points",
-            )
+        ],
+    }
+    st_echarts(options=treemap_options, height="450px", key="showcase_treemap")
 
-    with right:
-        indices = result["selection"].get("point_indices", [])
-        if indices and scatter_data:
-            clicked_name = scatter_data[indices[0]][3]
-            st.markdown(f"**Showing monthly trend for: {clicked_name}**")
-
-            detail_df = current_df.filter(pl.col("sub_category") == clicked_name)
-            monthly = (
-                detail_df.with_columns(
-                    pl.col("order_date").dt.truncate("1mo").alias("month")
-                )
-                .group_by("month")
-                .agg(
-                    pl.col("sales").sum().alias("revenue"),
-                    pl.col("profit").sum().alias("profit"),
-                )
-                .sort("month")
-            )
-
-            if monthly.is_empty():
-                st.info("No monthly data for this sub-category.")
-            else:
-                month_labels = monthly["month"].dt.to_string("%Y-%m").to_list()
-                detail_opts = {
-                    "title": {
-                        "text": f"{clicked_name} — Monthly Trend",
-                        "left": "center",
-                    },
-                    "tooltip": {
-                        "trigger": "axis",
-                        "valueFormatter": JsCode(
-                            "function(v){return '$'+Math.round(v).toLocaleString()}"
-                        ),
-                    },
-                    "legend": {"bottom": "0"},
-                    "xAxis": {"type": "category", "data": month_labels},
-                    "yAxis": [
-                        {"type": "value", "name": "Revenue"},
-                        {"type": "value", "name": "Profit"},
-                    ],
-                    "grid": {"bottom": "15%"},
-                    "series": [
-                        {
-                            "name": "Revenue",
-                            "type": "bar",
-                            "data": monthly["revenue"].to_list(),
-                        },
-                        {
-                            "name": "Profit",
-                            "type": "line",
-                            "yAxisIndex": 1,
-                            "smooth": True,
-                            "data": monthly["profit"].to_list(),
-                        },
-                    ],
+with row3_2:
+    body_profile = (
+        filtered_df.groupby("CAR_BT")
+        .apply(
+            lambda g: pd.Series(
+                {
+                    "total_cnt": g["CNT"].sum(),
+                    "brand_diversity": g["ORG_CAR_MAKER_KOR"].nunique(),
+                    "model_diversity": g["CAR_MOEL_DT"].nunique(),
+                    "import_share": safe_ratio(
+                        g.loc[
+                            ~g["CL_HMMD_IMP_SE_NM"].astype(str).isin(DOMESTIC_LABELS),
+                            "CNT",
+                        ].sum(),
+                        g["CNT"].sum(),
+                    )
+                    * 100,
+                    "private_share": safe_ratio(
+                        g.loc[g["OWNER_GB"].astype(str) == "개인", "CNT"].sum(),
+                        g["CNT"].sum(),
+                    )
+                    * 100,
                 }
-                st_echarts(
-                    options=detail_opts,
-                    height="450px",
-                    key="drill_detail",
-                    theme="streamlit",
-                )
-        else:
-            st.info(
-                "Click a bubble to drill into its monthly trend.",
-                icon=":material/touch_app:",
             )
-
-
-with st.container(border=True):
-    st.subheader(":material/touch_app: Deep Dive — Click to Explore")
-    st.caption(
-        "Uses `@st.fragment` + `on_select` for cross-chart interactivity. "
-        "Clicking a bubble re-renders only this section, not the full page."
+        )
+        .reset_index()
+        .sort_values("total_cnt", ascending=False)
+        .head(5)
     )
-    drill_down_section()
 
-# ==========================================
-# ROW 5: "Operational Insights"
-# ==========================================
-st.subheader(":material/settings: Operational Insights")
-st.caption(
-    "Examine shipping patterns, fulfillment speed, and order priority distribution."
+    radar_metrics = [
+        "total_cnt",
+        "brand_diversity",
+        "model_diversity",
+        "import_share",
+        "private_share",
+    ]
+    radar_labels = ["등록규모", "브랜드수", "모델수", "외산비중", "개인비중"]
+    radar_norm = normalize_frame(body_profile, radar_metrics)
+    radar_series = []
+    for _, row in radar_norm.iterrows():
+        radar_series.append(
+            {
+                "name": str(row["CAR_BT"]),
+                "value": [round(float(row[col]), 1) for col in radar_metrics],
+            }
+        )
+
+    radar_options = {
+        "title": {"text": "상위 차형 프로파일", "left": "center"},
+        "tooltip": {"trigger": "item"},
+        "legend": {
+            "bottom": "0",
+            "type": "scroll",
+            "data": [item["name"] for item in radar_series],
+        },
+        "radar": {
+            "indicator": [{"name": label, "max": 100} for label in radar_labels],
+            "center": ["50%", "50%"],
+            "radius": "60%",
+        },
+        "series": [{"type": "radar", "data": radar_series, "areaStyle": {"opacity": 0.08}}],
+    }
+    st_echarts(options=radar_options, height="450px", key="showcase_radar")
+
+with row3_3:
+    top_brands = (
+        filtered_df.groupby("ORG_CAR_MAKER_KOR", as_index=False)["CNT"]
+        .sum()
+        .sort_values("CNT", ascending=False)
+        .head(5)["ORG_CAR_MAKER_KOR"]
+        .tolist()
+    )
+    fuel_mix = (
+        filtered_df[filtered_df["ORG_CAR_MAKER_KOR"].isin(top_brands)]
+        .groupby(["ORG_CAR_MAKER_KOR", "FUEL"], as_index=False)["CNT"]
+        .sum()
+    )
+    fuel_order = (
+        fuel_mix.groupby("FUEL")["CNT"].sum().sort_values(ascending=False).index.tolist()
+    )
+    stacked_series = []
+    for fuel in fuel_order:
+        values = []
+        for brand in top_brands[::-1]:
+            subset = fuel_mix[
+                (fuel_mix["ORG_CAR_MAKER_KOR"] == brand) & (fuel_mix["FUEL"] == fuel)
+            ]["CNT"]
+            values.append(int(subset.iloc[0]) if not subset.empty else 0)
+        stacked_series.append(
+            {
+                "name": str(fuel),
+                "type": "bar",
+                "stack": "total",
+                "emphasis": {"focus": "series"},
+                "data": values,
+            }
+        )
+
+    top5_options = {
+        "title": {"text": "Top 5 브랜드 연료 구성", "left": "center"},
+        "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
+        "legend": {"bottom": "0", "type": "scroll"},
+        "grid": {"left": "3%", "right": "4%", "bottom": "14%", "containLabel": True},
+        "xAxis": {"type": "value"},
+        "yAxis": {"type": "category", "data": top_brands[::-1]},
+        "series": stacked_series,
+    }
+    st_echarts(options=top5_options, height="450px", key="showcase_top5")
+
+st.subheader(":material/touch_app: 브랜드 드릴다운")
+st.caption("브랜드별 등록 규모를 비교하고, 선택 브랜드의 월별 추이와 대표 모델을 확인합니다.")
+left, right = st.columns(2)
+
+brand_scatter = (
+    filtered_df.groupby("ORG_CAR_MAKER_KOR")
+    .apply(
+        lambda g: pd.Series(
+            {
+                "total_cnt": g["CNT"].sum(),
+                "model_count": g["CAR_MOEL_DT"].nunique(),
+                "latest_cnt": g.loc[g["month"] == latest_month, "CNT"].sum(),
+            }
+        )
+    )
+    .reset_index()
+    .sort_values("total_cnt", ascending=False)
 )
+
+scatter_data = []
+for _, row in brand_scatter.iterrows():
+    scatter_data.append(
+        [
+            int(row["model_count"]),
+            int(row["total_cnt"]),
+            int(max(row["latest_cnt"], 1)),
+            str(row["ORG_CAR_MAKER_KOR"]),
+        ]
+    )
+
+with left:
+    scatter_options = {
+        "animation": False,
+        "title": {"text": "브랜드 포트폴리오", "left": "center"},
+        "tooltip": {
+            "trigger": "item",
+            "formatter": JsCode(
+                "function(p){var v=p.value; return v[3] + '<br/>모델 수: ' + v[0] + '<br/>등록대수: ' + Math.round(v[1]).toLocaleString() + '대<br/>최근월: ' + Math.round(v[2]).toLocaleString() + '대';}"
+            ),
+        },
+        "xAxis": {"name": "모델 수", "type": "value"},
+        "yAxis": {"name": "총 등록대수", "type": "value"},
+        "visualMap": {
+            "show": False,
+            "dimension": 2,
+            "min": 1,
+            "max": max(item[2] for item in scatter_data) if scatter_data else 1,
+            "inRange": {"symbolSize": [12, 48]},
+        },
+        "series": [
+            {
+                "type": "scatter",
+                "data": scatter_data,
+                "itemStyle": {"opacity": 0.78, "color": "#2563eb"},
+            }
+        ],
+    }
+    st_echarts(options=scatter_options, height="450px", key="showcase_scatter")
+
+with right:
+    selected_brand_name = st.selectbox(
+        "브랜드 선택",
+        brand_scatter["ORG_CAR_MAKER_KOR"].astype(str).tolist(),
+        index=0,
+    )
+    brand_df = filtered_df[filtered_df["ORG_CAR_MAKER_KOR"] == selected_brand_name].copy()
+    brand_monthly = summarize_monthly(brand_df)
+    top_models = (
+        brand_df.groupby("CAR_MOEL_DT", as_index=False)["CNT"]
+        .sum()
+        .sort_values("CNT", ascending=False)
+        .head(5)
+    )
+
+    detail_options = {
+        "title": {"text": f"{selected_brand_name} 월별 추이", "left": "center"},
+        "tooltip": {
+            "trigger": "axis",
+            "valueFormatter": JsCode(
+                "function(v){return Math.round(v).toLocaleString()+'대'}"
+            ),
+        },
+        "legend": {"bottom": "0"},
+        "grid": {"bottom": "16%"},
+        "xAxis": {
+            "type": "category",
+            "data": brand_monthly["month"].dt.strftime("%Y-%m").tolist(),
+        },
+        "yAxis": [
+            {"type": "value", "name": "등록대수"},
+            {"type": "value", "name": "증감률"},
+        ],
+        "series": [
+            {
+                "name": "등록대수",
+                "type": "bar",
+                "data": brand_monthly["CNT"].round(0).astype(int).tolist(),
+                "itemStyle": {"color": "#60a5fa"},
+            },
+            {
+                "name": "전월 대비",
+                "type": "line",
+                "yAxisIndex": 1,
+                "smooth": True,
+                "data": brand_monthly["mom_pct"].round(1).fillna(0).tolist(),
+                "itemStyle": {"color": "#f97316"},
+                "lineStyle": {"width": 3},
+            },
+        ],
+    }
+    st_echarts(options=detail_options, height="300px", key="showcase_brand_detail")
+    st.dataframe(
+        top_models.rename(columns={"CAR_MOEL_DT": "모델", "CNT": "등록대수"}).reset_index(drop=True),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+st.subheader(":material/settings: 세부 분포")
+st.caption("연령, 소유자, 월별 구성, 연료 분포로 하단 인사이트를 보완합니다.")
 row5_1, row5_2, row5_3, row5_4 = st.columns(4)
 
 with row5_1:
-    # Priority × Ship Mode Heatmap
-    heatmap_df = current_df.group_by("order_priority", "ship_mode").agg(
-        pl.len().alias("count")
+    age_body = (
+        filtered_df.groupby(["AGE", "CAR_BT"], as_index=False)["CNT"]
+        .sum()
+        .sort_values("CNT", ascending=False)
     )
-
-    modes = ["Same Day", "First Class", "Second Class", "Standard Class"]
-
+    age_order = (
+        age_body.groupby("AGE")["CNT"].sum().sort_values(ascending=False).index.tolist()
+    )
+    body_order = (
+        age_body.groupby("CAR_BT")["CNT"].sum().sort_values(ascending=False).head(6).index.tolist()
+    )
     heatmap_data = []
-    for row in heatmap_df.to_dicts():
-        if row["order_priority"] in PRIORITIES and row["ship_mode"] in modes:
+    for _, row in age_body.iterrows():
+        if row["CAR_BT"] in body_order:
             heatmap_data.append(
                 [
-                    modes.index(row["ship_mode"]),
-                    PRIORITIES.index(row["order_priority"]),
-                    row["count"],
+                    body_order.index(row["CAR_BT"]),
+                    age_order.index(row["AGE"]),
+                    int(row["CNT"]),
                 ]
             )
 
-    heatmap_opts = {
-        "title": {"text": "Priority vs. Shipping Mode", "left": "center"},
+    heatmap_options = {
+        "title": {"text": "연령대-차형 Heatmap", "left": "center"},
         "tooltip": {"position": "top"},
-        "grid": {"height": "50%", "top": "15%", "bottom": "25%"},
-        "xAxis": {
-            "type": "category",
-            "data": modes,
-            "axisLabel": {"rotate": 30, "interval": 0},
-        },
-        "yAxis": {"type": "category", "data": PRIORITIES},
+        "grid": {"height": "55%", "top": "14%", "bottom": "24%"},
+        "xAxis": {"type": "category", "data": body_order, "axisLabel": {"rotate": 35}},
+        "yAxis": {"type": "category", "data": age_order},
         "visualMap": {
             "min": 0,
-            "max": heatmap_df["count"].max() if not heatmap_df.is_empty() else 100,
+            "max": max((item[2] for item in heatmap_data), default=0),
             "calculable": True,
             "orient": "horizontal",
             "left": "center",
             "bottom": "0%",
-            "inRange": {"color": ["#e0f3f8", "#4575b4"]},
+            "inRange": {"color": ["#dbeafe", "#60a5fa", "#1d4ed8"]},
         },
+        "series": [{"type": "heatmap", "data": heatmap_data, "label": {"show": True}}],
+    }
+    st_echarts(options=heatmap_options, height="450px", key="showcase_heatmap")
+
+with row5_2:
+    owner_profile = (
+        filtered_df.groupby("OWNER_GB")
+        .apply(
+            lambda g: pd.Series(
+                {
+                    "total_cnt": g["CNT"].sum(),
+                    "avg_per_model": safe_ratio(g["CNT"].sum(), g["CAR_MOEL_DT"].nunique()),
+                }
+            )
+        )
+        .reset_index()
+        .sort_values("total_cnt", ascending=True)
+    )
+
+    owner_options = {
+        "title": {"text": "소유자구분별 규모", "left": "center"},
+        "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
+        "legend": {"bottom": "0"},
+        "grid": {"left": "4%", "right": "4%", "bottom": "14%", "containLabel": True},
+        "yAxis": {"type": "category", "data": owner_profile["OWNER_GB"].astype(str).tolist()},
+        "xAxis": {"type": "value"},
         "series": [
             {
-                "name": "Orders",
-                "type": "heatmap",
-                "data": heatmap_data,
-                "label": {"show": True},
-                "emphasis": {
-                    "itemStyle": {"shadowBlur": 10, "shadowColor": "rgba(0, 0, 0, 0.5)"}
+                "name": "총 등록대수",
+                "type": "bar",
+                "data": owner_profile["total_cnt"].round(0).astype(int).tolist(),
+                "itemStyle": {"color": "#2563eb"},
+            },
+            {
+                "name": "모델당 평균 등록",
+                "type": "bar",
+                "data": owner_profile["avg_per_model"].round(1).tolist(),
+                "itemStyle": {"color": "#93c5fd"},
+            },
+        ],
+    }
+    st_echarts(options=owner_options, height="450px", key="showcase_owner_bar")
+
+with row5_3:
+    monthly_origin = (
+        filtered_df.groupby(["month", "CL_HMMD_IMP_SE_NM"], as_index=False)["CNT"]
+        .sum()
+        .sort_values("month")
+    )
+    origin_labels = (
+        monthly_origin.groupby("CL_HMMD_IMP_SE_NM")["CNT"]
+        .sum()
+        .sort_values(ascending=False)
+        .index.tolist()
+    )
+    monthly_series = []
+    month_labels = sorted(monthly_origin["month"].dt.strftime("%Y-%m").unique().tolist())
+    for label in origin_labels:
+        values = []
+        for month_label in month_labels:
+            subset = monthly_origin[
+                (monthly_origin["CL_HMMD_IMP_SE_NM"] == label)
+                & (monthly_origin["month"].dt.strftime("%Y-%m") == month_label)
+            ]["CNT"]
+            values.append(int(subset.iloc[0]) if not subset.empty else 0)
+        monthly_series.append(
+            {
+                "name": str(label),
+                "type": "bar",
+                "stack": "total",
+                "data": values,
+            }
+        )
+
+    monthly_mix_options = {
+        "title": {"text": "월별 국산/외산 구성", "left": "center"},
+        "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
+        "legend": {"bottom": "0"},
+        "xAxis": {"type": "category", "data": month_labels, "axisLabel": {"rotate": 35}},
+        "yAxis": {"type": "value"},
+        "grid": {"bottom": "16%", "containLabel": True},
+        "series": monthly_series,
+    }
+    st_echarts(options=monthly_mix_options, height="450px", key="showcase_origin_mix")
+
+with row5_4:
+    fuel_dist = (
+        filtered_df.groupby("FUEL", as_index=False)["CNT"]
+        .sum()
+        .sort_values("CNT", ascending=False)
+    )
+    fuel_options = {
+        "title": {"text": "연료 비중", "left": "center"},
+        "tooltip": {"trigger": "item", "formatter": "{b}: {c}대 ({d}%)"},
+        "series": [
+            {
+                "type": "pie",
+                "radius": ["40%", "70%"],
+                "avoidLabelOverlap": True,
+                "itemStyle": {
+                    "borderRadius": 8,
+                    "borderColor": "#fff",
+                    "borderWidth": 2,
                 },
+                "label": {"show": True, "formatter": "{b}\n{d}%"},
+                "data": [
+                    {"name": str(row["FUEL"]), "value": int(row["CNT"])}
+                    for _, row in fuel_dist.iterrows()
+                ],
             }
         ],
     }
-    st_echarts(
-        options=heatmap_opts, height="450px", key="shipping_heatmap", theme="streamlit"
-    )
+    st_echarts(options=fuel_options, height="450px", key="showcase_fuel_donut")
 
-with row5_2:
-    # Shipping Cost vs Profit by Ship Mode — horizontal bar
-    ship_df = (
-        current_df.group_by("ship_mode")
-        .agg(
-            pl.col("shipping_cost").mean().alias("avg_shipping"),
-            pl.col("profit").mean().alias("avg_profit"),
-        )
-        .sort("ship_mode")
-    )
-
-    if ship_df.is_empty():
-        st.info("No shipping data.")
-    else:
-        ship_modes = ship_df["ship_mode"].to_list()
-        shipping_opts = {
-            "title": {"text": "Avg Shipping Cost vs Profit by Mode", "left": "center"},
-            "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
-            "legend": {"bottom": "0"},
-            "grid": {
-                "left": "3%",
-                "right": "4%",
-                "bottom": "12%",
-                "containLabel": True,
-            },
-            "yAxis": {"type": "category", "data": ship_modes},
-            "xAxis": {"type": "value"},
-            "series": [
-                {
-                    "name": "Avg Shipping Cost",
-                    "type": "bar",
-                    "data": ship_df["avg_shipping"].round(2).to_list(),
-                    "itemStyle": {"color": "#5470c6"},
-                },
-                {
-                    "name": "Avg Profit",
-                    "type": "bar",
-                    "data": ship_df["avg_profit"].round(2).to_list(),
-                    "itemStyle": {"color": "#91cc75"},
-                },
-            ],
-        }
-        st_echarts(
-            options=shipping_opts,
-            height="450px",
-            key="ship_cost_profit",
-            theme="streamlit",
-        )
-
-with row5_3:
-    # Shipping Delay Distribution by Priority (ship_date - order_date)
-    delay_df = (
-        current_df.with_columns(
-            (pl.col("ship_date") - pl.col("order_date"))
-            .dt.total_days()
-            .alias("ship_days")
-        )
-        .filter(pl.col("ship_days") >= 0)
-        .group_by("ship_days", "order_priority")
-        .agg(pl.len().alias("count"))
-        .sort("ship_days")
-    )
-
-    if delay_df.is_empty():
-        st.info("No shipping delay data.")
-    else:
-        all_days = sorted(delay_df["ship_days"].unique().to_list())
-        day_labels = [f"{d}d" for d in all_days]
-        priority_colors = {
-            "Critical": "#ee6666",
-            "High": "#fac858",
-            "Medium": "#5470c6",
-            "Low": "#91cc75",
-        }
-
-        delay_series = []
-        for pri in PRIORITIES:
-            pri_data = delay_df.filter(pl.col("order_priority") == pri)
-            values = []
-            for d in all_days:
-                row = pri_data.filter(pl.col("ship_days") == d)
-                values.append(row["count"][0] if not row.is_empty() else 0)
-            delay_series.append(
-                {
-                    "name": pri,
-                    "type": "bar",
-                    "stack": "total",
-                    "data": values,
-                    "itemStyle": {"color": priority_colors[pri]},
-                }
-            )
-
-        delay_opts = {
-            "title": {"text": "Shipping Delay by Priority", "left": "center"},
-            "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
-            "legend": {"bottom": "0"},
-            "xAxis": {"type": "category", "data": day_labels, "name": "Days to Ship"},
-            "yAxis": {"type": "value"},
-            "grid": {"bottom": "12%"},
-            "series": delay_series,
-        }
-        st_echarts(
-            options=delay_opts, height="450px", key="ship_delay", theme="streamlit"
-        )
-
-with row5_4:
-    # Order Priority Distribution (donut)
-    priority_df = (
-        current_df.group_by("order_priority")
-        .agg(pl.len().alias("count"))
-        .sort("count", descending=True)
-    )
-
-    if priority_df.is_empty():
-        st.info("No priority data.")
-    else:
-        donut_opts = {
-            "title": {"text": "Order Priority", "left": "center"},
-            "tooltip": {"trigger": "item", "formatter": "{b}: {c} ({d}%)"},
-            "series": [
-                {
-                    "type": "pie",
-                    "radius": ["40%", "70%"],
-                    "avoidLabelOverlap": True,
-                    "itemStyle": {
-                        "borderRadius": 10,
-                        "borderColor": "#fff",
-                        "borderWidth": 2,
-                    },
-                    "label": {"show": True, "formatter": "{b}: {d}%"},
-                    "emphasis": {
-                        "label": {"show": True, "fontSize": "14", "fontWeight": "bold"},
-                        "itemStyle": {
-                            "shadowBlur": 10,
-                            "shadowOffsetX": 0,
-                            "shadowColor": "rgba(0, 0, 0, 0.5)",
-                        },
-                    },
-                    "data": [
-                        {"name": r["order_priority"], "value": r["count"]}
-                        for r in priority_df.to_dicts()
-                    ],
-                }
-            ],
-        }
-        st_echarts(
-            options=donut_opts, height="450px", key="priority_donut", theme="streamlit"
-        )
-
-# --- Data Preview ---
-with st.expander("Raw data preview", icon=":material/table_view:"):
-    st.dataframe(current_df.head(100).to_pandas(), width="stretch")
-
+# with st.expander("원본 데이터 미리보기", icon=":material/table_view:"):
+#     preview_cols = [
+#         "EXTRACT_DE",
+#         "ORG_CAR_MAKER_KOR",
+#         "CAR_MOEL_DT",
+#         "CAR_BT",
+#         "FUEL",
+#         "OWNER_GB",
+#         "CL_HMMD_IMP_SE_NM",
+#         "CNT",
+#     ]
+#     st.dataframe(filtered_df[preview_cols].head(100), use_container_width=True, hide_index=True)
 
 footer.render()

@@ -7,18 +7,19 @@ def render_sidebar_nav():
         st.session_state.logged_in = False
 
     with st.sidebar:
-        st.caption("APP MENU")
+        #st.caption("")
 
         # HOME
         st.subheader("HOME")
         st.page_link("pages/1_Overview.py", label="Overview", icon="📊")
         st.page_link("pages/2_New_Regist_summary.py", label="New Regist summary", icon="🚗")
         st.page_link("pages/3_Erase_Regist_summary.py", label="Erase Regist summary", icon="🗑️")
+        st.page_link("pages/4_showcase.py", label="Showcase", icon="🗑️")
 
         # Contents (로그인 여부와 무관하게 노출하고 싶다면 여기 둠)
         st.subheader("Contents")
-        st.page_link("pages/4_GPT_Chatbot.py", label="Chat Bot", icon="💬")
-        st.page_link("pages/5_ab_test_platform.py", label="A/B Test", icon="🆎")
+        st.page_link("pages/5_GPT_Chatbot.py", label="Chat Bot", icon="💬")
+        st.page_link("pages/6_ab_test_platform.py", label="A/B Test", icon="🆎")
 
         # Durability Project (로그인한 경우에만 노출)
         # if st.session_state.get("logged_in", False):

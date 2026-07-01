@@ -20,6 +20,7 @@ render_sidebar_nav()
 
 
 DOMESTIC_LABELS = {"국산", "국내", "국산차"}
+ECO_FUELS = {"전기", "하이브리드", "수소"}
 
 
 def format_count(value: float) -> str:
@@ -106,6 +107,17 @@ def top_change_summary(df: pd.DataFrame, group_col: str) -> tuple[str, float, st
     return str(inc_row[group_col]), float(inc_row["delta"]), str(dec_row[group_col]), float(dec_row["delta"])
 
 
+def detect_region_column(df: pd.DataFrame) -> str | None:
+    candidates = ["지역", "REGION", "AREA"]
+    for name in candidates:
+        if name in df.columns:
+            return name
+    for col in df.columns:
+        if "지역" in str(col):
+            return col
+    return None
+
+
 data = get_newreg_data(base_dir="data/")
 df = data["dim"].copy()
 df["EXTRACT_DE"] = pd.to_datetime(df["EXTRACT_DE"].astype(str), format="%Y%m%d")
@@ -117,7 +129,7 @@ analysis_period_label = f"{analysis_year}-12"
 st.title(":material/dashboard: 신차등록현황 쇼케이스")
 st.markdown(
     "신차등록 데이터를 기준으로 **등록 규모, 최근 흐름, 구성 변화**를 한눈에 볼 수 있게 정리한 요약형 대시보드입니다.  \n"
-    f"분석 기준월: **{analysis_period_label}**"
+    f"분석 기준년: **{analysis_year}**"
 )
 
 with st.sidebar:
@@ -849,6 +861,169 @@ with row5_4:
         ],
     }
     st_echarts(options=fuel_options, height="450px", key="showcase_fuel_donut")
+
+region_col = detect_region_column(filtered_df)
+if region_col:
+    st.subheader(":material/speed: 지역별 친환경 전환률")
+    st.caption(f"`{period_label}` 누적 기준으로 지역별 친환경차(전기·하이브리드·수소) 등록 비중을 자동차 계기판 형태로 확인합니다.")
+
+    region_summary = (
+        filtered_df.groupby(region_col, as_index=False)
+        .agg(total_cnt=("CNT", "sum"))
+        .sort_values("total_cnt", ascending=False)
+    )
+    eco_summary = (
+        filtered_df[filtered_df["FUEL"].astype(str).isin(ECO_FUELS)]
+        .groupby(region_col, as_index=False)["CNT"]
+        .sum()
+        .rename(columns={"CNT": "eco_cnt"})
+    )
+    region_summary = region_summary.merge(eco_summary, on=region_col, how="left").fillna({"eco_cnt": 0})
+    region_summary["eco_rate"] = (region_summary["eco_cnt"] / region_summary["total_cnt"] * 100).fillna(0)
+    region_summary = region_summary.sort_values("eco_rate", ascending=False)
+
+    national_total = float(region_summary["total_cnt"].sum())
+    national_eco = float(region_summary["eco_cnt"].sum())
+    national_rate = safe_ratio(national_eco, national_total) * 100
+
+    gauge_col, rank_col = st.columns([1.6, 1], gap="large")
+    with gauge_col:
+        region_options = ["전체"] + region_summary[region_col].astype(str).tolist()
+        selected_region = st.selectbox("지역 선택", region_options, key="showcase_region")
+        if selected_region == "전체":
+            region_name = "전국"
+            total_value = national_total
+            eco_value = national_eco
+            eco_rate = national_rate
+        else:
+            selected_row = region_summary[region_summary[region_col].astype(str) == selected_region].iloc[0]
+            region_name = selected_region
+            total_value = float(selected_row["total_cnt"])
+            eco_value = float(selected_row["eco_cnt"])
+            eco_rate = float(selected_row["eco_rate"])
+
+        diff_vs_national = eco_rate - national_rate
+        gauge_options = {
+            "tooltip": {
+                "trigger": "item",
+                "backgroundColor": "rgba(15, 23, 42, 0.92)",
+                "borderWidth": 0,
+                "textStyle": {"color": "#f8fafc", "fontSize": 12},
+                "formatter": (
+                    f"{region_name} 친환경 전환률<br/>"
+                    f"전환률: {eco_rate:.1f}%<br/>"
+                    f"친환경 등록: {format_count(eco_value)}대<br/>"
+                    f"전체 등록: {format_count(total_value)}대<br/>"
+                    f"전국 평균 대비: {diff_vs_national:+.1f}%p"
+                ),
+            },
+            "series": [
+                {
+                    "type": "gauge",
+                    "startAngle": 180,
+                    "endAngle": 0,
+                    "min": 0,
+                    "max": 100,
+                    "center": ["50%", "72%"],
+                    "radius": "115%",
+                    "splitNumber": 5,
+                    "axisLine": {
+                        "lineStyle": {
+                            "width": 26,
+                            "color": [
+                                [0.1, "#ef4444"],
+                                [0.2, "#f97316"],
+                                [0.3, "#facc15"],
+                                [0.5, "#84cc16"],
+                                [1, "#16a34a"],
+                            ],
+                        }
+                    },
+                    "progress": {
+                        "show": True,
+                        "roundCap": True,
+                        "width": 26,
+                        "itemStyle": {
+                            "color": "rgba(15, 23, 42, 0.42)"
+                        },
+                    },
+                    "pointer": {
+                        "show": True,
+                        "length": "42%",
+                        "width": 8,
+                        "offsetCenter": [0, "-2%"],
+                        "itemStyle": {"color": "#0f172a"},
+                    },
+                    "anchor": {
+                        "show": True,
+                        "showAbove": True,
+                        "size": 18,
+                        "itemStyle": {"color": "#ffffff", "borderColor": "#0f172a", "borderWidth": 4},
+                    },
+                    "axisTick": {"distance": -30, "splitNumber": 4, "lineStyle": {"color": "#fff", "width": 2}},
+                    "splitLine": {"distance": -34, "length": 14, "lineStyle": {"color": "#fff", "width": 3}},
+                    "axisLabel": {"distance": 4, "color": "#64748b", "fontSize": 11},
+                    "detail": {
+                        "valueAnimation": True,
+                        "formatter": f"{eco_rate:.1f}%",
+                        "color": "#0f172a",
+                        "fontSize": 30,
+                        "fontWeight": 700,
+                        "offsetCenter": [0, "10%"],
+                    },
+                    "title": {
+                        "offsetCenter": [0, "-48%"],
+                        "fontSize": 17,
+                        "fontWeight": 700,
+                        "color": "#0f172a",
+                    },
+                    "data": [{"value": round(eco_rate, 1), "name": f"{region_name} 친환경 전환률"}],
+                }
+            ],
+            "graphic": [
+                {
+                    "type": "text",
+                    "left": "center",
+                    "top": "80%",
+                    "style": {
+                        "text": f"친환경 {format_count(eco_value)}대 / 전체 {format_count(total_value)}대",
+                        "fill": "#475569",
+                        "fontSize": 13,
+                    },
+                },
+                {
+                    "type": "text",
+                    "left": "center",
+                    "top": "88%",
+                    "style": {
+                        "text": f"전국 평균 대비 {diff_vs_national:+.1f}%p",
+                        "fill": "#1d4ed8" if diff_vs_national >= 0 else "#dc2626",
+                        "fontSize": 13,
+                        "fontWeight": 700,
+                    },
+                },
+            ],
+        }
+        st_echarts(options=gauge_options, height="420px", key="showcase_eco_gauge")
+
+    with rank_col:
+        rank_df = region_summary.head(8).sort_values("eco_rate", ascending=True)
+        rank_options = {
+            "title": {"text": "지역별 전환률 순위", "left": "center"},
+            "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}, "formatter": "{b}<br/>{c}%"},
+            "grid": {"left": "8%", "right": "6%", "bottom": "6%", "containLabel": True},
+            "xAxis": {"type": "value", "axisLabel": {"formatter": "{value}%"}},
+            "yAxis": {"type": "category", "data": rank_df[region_col].astype(str).tolist()},
+            "series": [
+                {
+                    "type": "bar",
+                    "data": rank_df["eco_rate"].round(1).tolist(),
+                    "itemStyle": {"color": "#22c55e", "borderRadius": [0, 10, 10, 0]},
+                    "label": {"show": True, "position": "right", "formatter": "{c}%"},
+                }
+            ],
+        }
+        st_echarts(options=rank_options, height="420px", key="showcase_eco_rank")
 
 # with st.expander("원본 데이터 미리보기", icon=":material/table_view:"):
 #     preview_cols = [

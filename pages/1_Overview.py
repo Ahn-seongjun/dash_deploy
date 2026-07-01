@@ -453,7 +453,7 @@ with metric_cols[3]:
         border=True,
     )
 
-st.caption("상단 지표는 최근월 기준이며, 우측 수치일수록 현재 시장 체감 흐름을 빠르게 보여주도록 구성했습니다.")
+#st.caption("상단 지표는 최근월 기준이며, 우측 수치일수록 현재 시장 체감 흐름을 빠르게 보여주도록 구성했습니다.")
 
 ui.apply_tab_style()
 tab1, tab2, tab3 = st.tabs(["신규", "이전", "말소"])

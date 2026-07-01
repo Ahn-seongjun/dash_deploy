@@ -111,11 +111,13 @@ df = data["dim"].copy()
 df["EXTRACT_DE"] = pd.to_datetime(df["EXTRACT_DE"].astype(str), format="%Y%m%d")
 df["month"] = df["EXTRACT_DE"].dt.to_period("M").dt.to_timestamp()
 df["CNT"] = pd.to_numeric(df["CNT"], errors="coerce").fillna(0)
+analysis_year = int(df["EXTRACT_DE"].dt.year.max())
+analysis_period_label = f"{analysis_year}-12"
 
 st.title(":material/dashboard: 신차등록현황 쇼케이스")
 st.markdown(
     "신차등록 데이터를 기준으로 **등록 규모, 최근 흐름, 구성 변화**를 한눈에 볼 수 있게 정리한 요약형 대시보드입니다.  \n"
-    f"분석 기준월: **{df['month'].max().strftime('%Y-%m')}**"
+    f"분석 기준월: **{analysis_period_label}**"
 )
 
 with st.sidebar:
@@ -251,10 +253,11 @@ st.caption(
 st.markdown(
     f"""
     <div style="padding:16px 18px; border:1px solid #dbeafe; border-radius:18px; background:linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); margin:10px 0 18px 0;">
-      <div style="font-size:15px; color:#0f172a; font-weight:700; margin-bottom:6px;">이번 달 한줄 요약</div>
+      <div style="font-size:15px; color:#0f172a; font-weight:700; margin-bottom:6px;">{analysis_year}년 한줄 요약</div>
       <div style="font-size:14px; color:#334155; line-height:1.6;">
-        최근월 등록은 <b>{format_count(latest_month_value)}대</b>로 전월 대비 <b>{format_pct(latest_delta or 0)}</b> 움직였고,
-        최다 브랜드는 <b>{top_brand_name}</b>, 최다 연료는 <b>{top_fuel_name}</b>입니다.
+        {analysis_year}년 누적 등록은 <b>{format_count(total_cnt)}대</b>이며,
+        시장 점유율 1위 브랜드는 <b>{top_brand_name}</b> ({format_pct(top_brand_share)}), 최다 차형은 <b>{top_body_name}</b>,
+        최다 연료는 <b>{top_fuel_name}</b> ({format_pct(top_fuel_share)})입니다.
       </div>
     </div>
     """,

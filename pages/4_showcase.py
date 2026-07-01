@@ -246,9 +246,9 @@ with col4:
         chart_type="area",
     )
 
-st.caption(
-    f"최근월 기준 최다 차형은 **{top_body_name}**이며, 비중은 **{format_pct(top_body_share)}**입니다."
-)
+# st.caption(
+#     f"최근월 기준 최다 차형은 **{top_body_name}**이며, 비중은 **{format_pct(top_body_share)}**입니다."
+# )
 
 st.markdown(
     f"""
@@ -275,7 +275,7 @@ with insight_col2:
     )
 
 st.subheader(":material/trending_up: 등록 추이")
-st.caption("최근 신차등록 흐름과 전월 대비 증감률을 함께 확인합니다.")
+#st.caption("최근 신차등록 흐름과 전월 대비 증감률을 함께 확인합니다.")
 row2_1, row2_2 = st.columns([3, 2], gap="small")
 
 with row2_1:
@@ -349,7 +349,7 @@ with row2_2:
         st_echarts(options=growth_options, height="400px", key="showcase_growth")
 
 st.subheader(":material/insights: 추가 인사이트")
-st.caption("신차등록 요약 페이지를 보완할 수 있는 핵심 포인트만 가볍게 추가했습니다.")
+#st.caption("신차등록 요약 페이지를 보완할 수 있는 핵심 포인트만 가볍게 추가했습니다.")
 extra_1, extra_2 = st.columns(2)
 
 with extra_1:
@@ -413,7 +413,7 @@ with extra_2:
     st_echarts(options=origin_fuel_options, height="340px", key="showcase_origin_fuel")
 
 st.subheader(":material/explore: 구성 분석")
-st.caption("브랜드, 모델, 차형, 연료 기준으로 신차등록 구성을 요약합니다.")
+#st.caption("브랜드, 모델, 차형, 연료 기준으로 신차등록 구성을 요약합니다.")
 row3_1, row3_2, row3_3 = st.columns(3)
 
 with row3_1:
@@ -578,7 +578,7 @@ with row3_3:
     st_echarts(options=top5_options, height="450px", key="showcase_top5")
 
 st.subheader(":material/touch_app: 브랜드 드릴다운")
-st.caption("브랜드별 등록 규모를 비교하고, 선택 브랜드의 월별 추이와 대표 모델을 확인합니다.")
+#st.caption("브랜드별 등록 규모를 비교하고, 선택 브랜드의 월별 추이와 대표 모델을 확인합니다.")
 left, right = st.columns(2)
 
 brand_scatter = (
@@ -695,7 +695,7 @@ with right:
     )
 
 st.subheader(":material/settings: 세부 분포")
-st.caption("연령, 소유자, 월별 구성, 연료 분포로 하단 인사이트를 보완합니다.")
+#st.caption("연령, 소유자, 월별 구성, 연료 분포로 하단 인사이트를 보완합니다.")
 row5_1, row5_2, row5_3, row5_4 = st.columns(4)
 
 with row5_1:

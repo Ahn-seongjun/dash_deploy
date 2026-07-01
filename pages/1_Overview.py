@@ -232,6 +232,29 @@ def build_change_bar_figure(
     topn: int = 5,
 ) -> go.Figure:
     filtered = tbl[(tbl["CNT_BASE"] >= 20) & (tbl["CNT_COMP"] >= 20)].copy()
+    filtered["CHANGE_PCT"] = pd.to_numeric(filtered["CHANGE_PCT"], errors="coerce")
+    filtered = filtered.dropna(subset=["CHANGE_PCT"])
+
+    if filtered.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            title=title,
+            xaxis_title="증감률(%)",
+            yaxis_title=dim_col,
+            annotations=[
+                dict(
+                    text="표시할 변동 데이터가 없습니다.",
+                    x=0.5,
+                    y=0.5,
+                    xref="paper",
+                    yref="paper",
+                    showarrow=False,
+                    font=dict(size=14, color=PALETTE["muted"]),
+                )
+            ],
+        )
+        return style_figure(fig, height=380)
+
     if direction == "상위 TOP":
         plot_df = filtered.nlargest(topn, "CHANGE_PCT").sort_values("CHANGE_PCT", ascending=True)
     else:

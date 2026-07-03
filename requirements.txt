@@ -8,3 +8,4 @@ langchain>=0.0.217
 openai>=1.2
 extra_streamlit_components
 openpyxl==3.1.5
+pyarrow

@@ -5,6 +5,8 @@ showSidebarNavigation = false
 primaryColor="#1550d2"
 secondaryBackgroundColor="#dce5f8"
 
+[server]
+maxUploadSize = 2048
 # The preset Streamlit theme that your custom theme inherits from. One of "light" or "dark".
 # base =
 

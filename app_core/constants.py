@@ -1,2 +1,1 @@
-# app_core/constants.py
-APP_TITLE = "[카이즈유] 자동차 등록데이터"
+APP_TITLE = "자동차 등록 데이터 대시보드"

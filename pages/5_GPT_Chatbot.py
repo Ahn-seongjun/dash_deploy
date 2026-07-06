@@ -12,11 +12,11 @@ with st.sidebar:
     st.subheader("LLM 설정")
     hf_api_token = st.text_input("Hugging Face Token", type="password", key="hf_api_token")
     model_name = st.text_input("모델명", value=eng.DEFAULT_HF_MODEL, key="hf_model_name")
-    st.caption("배포 환경에서는 로컬 모델보다 Hugging Face Inference API 방식이 안정적입니다.")
+    st.caption("월별 총대수 질문은 우선 직접 집계하고, 그 외 질문은 RAG 검색 후 LLM이 답합니다.")
 
 
 st.title("데이터 기반 RAG Chatbot")
-st.caption("`data/marts`에 저장된 parquet 집계데이터를 근거로 질문에 답변합니다.")
+st.caption("`data/marts` parquet 집계데이터를 근거로 질문에 답변합니다.")
 
 doc_df = eng.load_rag_documents()
 dataset_choice = st.selectbox("조회 데이터", eng.dataset_options(doc_df), index=0)
@@ -35,7 +35,7 @@ if "rag_messages" not in st.session_state:
     st.session_state["rag_messages"] = [
         {
             "role": "assistant",
-            "content": "예시 질문: `2026-05 말소등록 상위 브랜드는?`, `2025-12 신규등록 하이브리드 비중은?`, `용도 데이터에서 2025년 상위 용도는?`",
+            "content": "예시 질문: `2026년 5월 신차 등록대수`, `2026-05 말소등록 상위 브랜드`, `2025-12 신규등록 하이브리드 비중`",
         }
     ]
 
@@ -50,9 +50,13 @@ if question := st.chat_input("질문을 입력하세요"):
     with st.chat_message("user"):
         st.write(question)
 
-    with st.spinner("관련 근거 문서를 찾는 중입니다..."):
-        retrieved_df = eng.retrieve_documents(question, doc_df, source_label=dataset_choice, top_k=8)
-        answer = eng.answer_with_huggingface(question, retrieved_df, hf_api_token, model_name=model_name)
+    with st.spinner("질문을 분석하는 중입니다..."):
+        direct = eng.answer_direct_count(question, doc_df)
+        if direct is not None:
+            retrieved_df, answer = direct
+        else:
+            retrieved_df = eng.retrieve_documents(question, doc_df, source_label=dataset_choice, top_k=8)
+            answer = eng.answer_with_huggingface(question, retrieved_df, hf_api_token, model_name=model_name)
 
     with st.chat_message("assistant"):
         st.write(answer)

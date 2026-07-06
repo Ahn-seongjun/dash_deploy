@@ -169,3 +169,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Local raw data
+data/newreg_2025_2026.parquet
+data/usedreg_2025_2026.parquet
+data/ersrreg_2025_2026.parquet

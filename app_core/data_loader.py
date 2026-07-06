@@ -12,18 +12,20 @@ today = datetime.today()
 month_ago = datetime(today.year, today.month, today.day) + relativedelta(months=-1)
 month = month_ago.strftime("%m")
 
+MARTS_DIRNAME = "marts"
+
 
 @st.cache_data(ttl=3600)
 def load_excel(path: Path, sheet_name=0, dtype=None) -> pd.DataFrame:
     if not path.exists():
-        raise FileNotFoundError(f"[data_loader] 파일이 없습니다: {path}")
+        raise FileNotFoundError(f"[data_loader] file not found: {path}")
     return pd.read_excel(path, sheet_name=sheet_name, dtype=dtype, engine="openpyxl")
 
 
 @st.cache_data(ttl=3600)
 def load_workbook(path: Path, sheets: list[str] | None = None) -> dict[str, pd.DataFrame]:
     if not path.exists():
-        raise FileNotFoundError(f"[data_loader] 파일이 없습니다: {path}")
+        raise FileNotFoundError(f"[data_loader] file not found: {path}")
     dfs = pd.read_excel(path, sheet_name=sheets, engine="openpyxl")
     if isinstance(dfs, pd.DataFrame):
         key = sheets if isinstance(sheets, str) else "Sheet1"
@@ -34,15 +36,19 @@ def load_workbook(path: Path, sheets: list[str] | None = None) -> dict[str, pd.D
 @st.cache_data(ttl=3600)
 def load_csv(path: Path, dtype=None, parse_dates=None) -> pd.DataFrame:
     if not path.exists():
-        raise FileNotFoundError(f"[data_loader] 파일이 없습니다: {path}")
+        raise FileNotFoundError(f"[data_loader] file not found: {path}")
     return pd.read_csv(path, dtype=dtype, parse_dates=parse_dates)
 
 
 @st.cache_data(ttl=3600)
-def load_parquet(path: Path) -> pd.DataFrame:
+def load_parquet(path: Path, columns: list[str] | None = None) -> pd.DataFrame:
     if not path.exists():
-        raise FileNotFoundError(f"[data_loader] 파일이 없습니다: {path}")
-    return pd.read_parquet(path)
+        raise FileNotFoundError(f"[data_loader] file not found: {path}")
+    return pd.read_parquet(path, columns=columns)
+
+
+def _marts_dir(base: Path) -> Path:
+    return base / MARTS_DIRNAME
 
 
 def _normalize_raw_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -67,15 +73,6 @@ def _normalize_raw_frame(df: pd.DataFrame) -> pd.DataFrame:
         out["MON"] = (out["EXTRACT_DE"] % 100).astype(int)
 
     return out
-
-
-def _build_monthly_total(raw_df: pd.DataFrame) -> pd.DataFrame:
-    return (
-        raw_df.groupby(["YEA", "MON"], as_index=False)["CNT"]
-        .sum()
-        .sort_values(["YEA", "MON"])
-        .reset_index(drop=True)
-    )
 
 
 def _build_monthly_detail(raw_df: pd.DataFrame) -> pd.DataFrame:
@@ -118,17 +115,49 @@ def _build_top_table(raw_df: pd.DataFrame) -> pd.DataFrame:
     return grouped[grouped["RN"] <= 10].reset_index(drop=True)
 
 
-def _load_newreg_parquet(base: Path) -> dict[str, pd.DataFrame]:
-    raw_df = _normalize_raw_frame(load_parquet(base / "newreg_2025_2026.parquet"))
+def _load_newreg_detail_mart(base: Path) -> pd.DataFrame | None:
+    path = _marts_dir(base) / "newreg_detail.parquet"
+    if not path.exists():
+        return None
+    return _normalize_raw_frame(load_parquet(path))
+
+
+def _load_used_detail_mart(base: Path) -> pd.DataFrame | None:
+    path = _marts_dir(base) / "used_detail.parquet"
+    if not path.exists():
+        return None
+    return _normalize_raw_frame(load_parquet(path))
+
+
+def _load_erase_detail_mart(base: Path) -> pd.DataFrame | None:
+    path = _marts_dir(base) / "erase_detail.parquet"
+    if not path.exists():
+        return None
+    return _normalize_raw_frame(load_parquet(path))
+
+
+def _load_car_use_mart(base: Path) -> pd.DataFrame:
+    mart_path = _marts_dir(base) / "car_use_yearly_summary.parquet"
+    root_path = base / "car_use_yearly_summary.parquet"
+    if mart_path.exists():
+        return load_parquet(mart_path)
+    return load_parquet(root_path)
+
+
+def _load_newreg_from_marts(base: Path) -> dict[str, pd.DataFrame] | None:
+    detail = _load_newreg_detail_mart(base)
+    if detail is None:
+        return None
+
     monthly = (
-        raw_df.groupby("EXTRACT_DE", as_index=False)["CNT"]
+        detail.groupby("EXTRACT_DE", as_index=False)["CNT"]
         .sum()
         .rename(columns={"EXTRACT_DE": "date"})
         .sort_values("date")
         .reset_index(drop=True)
     )
 
-    use_long = load_parquet(base / "car_use_yearly_summary.parquet")
+    use_long = _load_car_use_mart(base)
     use_wide = (
         use_long.pivot_table(
             index=["CAR_USE", "CAR_USE_DETAL"],
@@ -139,16 +168,59 @@ def _load_newreg_parquet(base: Path) -> dict[str, pd.DataFrame]:
         )
         .reset_index()
     )
-    use_wide.columns = [
-        str(col)[-2:] if isinstance(col, int) else col
-        for col in use_wide.columns
-    ]
+    use_wide.columns = [str(col)[-2:] if isinstance(col, int) else col for col in use_wide.columns]
+
+    return {"monthly": monthly, "cum": use_wide, "dim": detail}
+
+
+def _load_overview_from_marts(base: Path) -> Dict[str, pd.DataFrame] | None:
+    new_detail = _load_newreg_detail_mart(base)
+    used_detail = _load_used_detail_mart(base)
+    erase_detail = _load_erase_detail_mart(base)
+    if any(frame is None for frame in [new_detail, used_detail, erase_detail]):
+        return None
+
+    new_detail = new_detail.copy()
+    used_detail = used_detail.copy()
+    erase_detail = erase_detail.copy()
 
     return {
-        "monthly": monthly,
-        "cum": use_wide,
-        "dim": raw_df,
+        "new_top": _build_top_table(new_detail),
+        "use_top": _build_top_table(used_detail),
+        "ersr_top": _build_top_table(erase_detail),
+        "new_mon_cnt": _build_monthly_detail(new_detail),
+        "used_mon_cnt": _build_monthly_detail(used_detail),
+        "er_mon_cnt": _build_monthly_detail(erase_detail),
+        "new_seg": _build_segment_frame(new_detail),
+        "used_seg": _build_segment_frame(used_detail),
+        "er_seg": _build_segment_frame(erase_detail),
     }
+
+
+def _load_newreg_parquet(base: Path) -> dict[str, pd.DataFrame]:
+    raw_df = _normalize_raw_frame(load_parquet(base / "newreg_2025_2026.parquet"))
+    monthly = (
+        raw_df.groupby("EXTRACT_DE", as_index=False)["CNT"]
+        .sum()
+        .rename(columns={"EXTRACT_DE": "date"})
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
+
+    use_long = _load_car_use_mart(base)
+    use_wide = (
+        use_long.pivot_table(
+            index=["CAR_USE", "CAR_USE_DETAL"],
+            columns="YEAR",
+            values="CNT",
+            aggfunc="sum",
+            fill_value=0,
+        )
+        .reset_index()
+    )
+    use_wide.columns = [str(col)[-2:] if isinstance(col, int) else col for col in use_wide.columns]
+
+    return {"monthly": monthly, "cum": use_wide, "dim": raw_df}
 
 
 def _load_ersr_parquet(base: Path) -> dict[str, pd.DataFrame]:
@@ -156,13 +228,13 @@ def _load_ersr_parquet(base: Path) -> dict[str, pd.DataFrame]:
     return {"monthly": raw_df}
 
 
-def _load_used_parquet(base: Path) -> pd.DataFrame:
-    return _normalize_raw_frame(load_parquet(base / "usedreg_2025_2026.parquet"))
-
-
 @st.cache_data(ttl=3600, show_spinner="Overview 데이터를 준비하는 중...")
 def get_overview_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
     base = Path(base_dir) if base_dir else Path("./data")
+
+    mart_data = _load_overview_from_marts(base)
+    if mart_data is not None:
+        return mart_data
 
     parquet_paths = [
         base / "newreg_2025_2026.parquet",
@@ -189,7 +261,7 @@ def get_overview_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]
     try:
         p_top = base / f"26{month}_top.xlsx"
         p_mon = base / "25_26_moncnt.xlsx"
-        p_seg = base / f"26{month}차급외형연료.xlsx"
+        p_seg = base / f"26{month}차급차형연료.xlsx"
 
         top_wb = load_workbook(p_top, sheets=["신규", "이전", "말소"])
         mon_wb = load_workbook(p_mon, sheets=["신규", "이전", "말소"])
@@ -199,7 +271,7 @@ def get_overview_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]
         preyearmon = nodata.strftime("%y%m")
         p_top = base / f"{preyearmon}_top.xlsx"
         p_mon = base / "25_26_moncnt.xlsx"
-        p_seg = base / f"{preyearmon}차급외형연료.xlsx"
+        p_seg = base / f"{preyearmon}차급차형연료.xlsx"
         top_wb = load_workbook(p_top, sheets=["신규", "이전", "말소"])
         mon_wb = load_workbook(p_mon, sheets=["신규", "이전", "말소"])
         seg_wb = load_workbook(p_seg, sheets=["신규", "이전", "말소"])
@@ -220,14 +292,19 @@ def get_overview_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]
 @st.cache_data(ttl=3600, show_spinner="신규등록 데이터를 불러오는 중...")
 def get_newreg_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
     base = Path(base_dir) if base_dir else Path("./data")
+
+    mart_data = _load_newreg_from_marts(base)
+    if mart_data is not None:
+        return mart_data
+
     parquet_path = base / "newreg_2025_2026.parquet"
     if parquet_path.exists():
         return _load_newreg_parquet(base)
 
     paths = {
         "monthly": base / "simple_monthly_cnt.csv",
-        "cum": base / "16-25누적 용도별 등록대수.csv",
-        "dim": base / "2025년 누적 데이터.csv",
+        "cum": base / "16-25누적용도별등록대수.csv",
+        "dim": base / "2025년누적데이터.csv",
     }
     data = {
         "monthly": load_csv(paths["monthly"]),
@@ -241,9 +318,14 @@ def get_newreg_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
 @st.cache_data(ttl=3600, show_spinner="말소등록 데이터를 불러오는 중...")
 def get_ersr_data(base_dir: Optional[str] = "data") -> Dict[str, pd.DataFrame]:
     base = Path(base_dir) if base_dir else Path("./data")
+
+    mart_detail = _load_erase_detail_mart(base)
+    if mart_detail is not None:
+        return {"monthly": mart_detail}
+
     parquet_path = base / "ersrreg_2025_2026.parquet"
     if parquet_path.exists():
         return _load_ersr_parquet(base)
 
-    df = load_csv(base / "2025년 말소데이터.csv")
+    df = load_csv(base / "2025년말소데이터.csv")
     return {"monthly": _normalize_raw_frame(df)}

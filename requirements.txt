@@ -12,3 +12,4 @@ extra_streamlit_components
 openpyxl==3.1.5
 pyarrow
 scipy
+huggingface_hub

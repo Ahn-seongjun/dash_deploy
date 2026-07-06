@@ -1,469 +1,344 @@
-# app_core/chatbot_engine.py
 from __future__ import annotations
-import re, json
-from typing import Dict, Any, Tuple, List, Optional
+
+import math
+import re
+from pathlib import Path
+from typing import Any
+
 import pandas as pd
-import plotly.express as px
+import streamlit as st
 
-# ============ 표시용 맵/유틸 ============
-DISPLAY_NAME = {
-    "TOTAL":"합계",
-    "AGE":"연령","BRAND":"브랜드","MODEL":"모델",
-    "FUEL":"연료","IMPORT":"국산/수입",
-    "SEG_SZ":"차급","SEG_BT":"외형","EXTRACT_DE":"연월",
+from app_core import data_loader as dl
+
+
+MARTS_DIR = Path("data") / "marts"
+DEFAULT_HF_MODEL = "Qwen/Qwen2.5-7B-Instruct"
+SOURCE_LABELS = {
+    "newreg": "신규등록",
+    "usedreg": "이전등록",
+    "erase": "말소등록",
+    "car_use": "용도연도집계",
 }
-
-def _fmt_ym(ym: str) -> str:
-    s = str(ym).strip()
-    return f"{s[:4]}-{s[4:]}" if len(s)==6 and s.isdigit() else s
-
-# ============ 컬럼 후보(자동 매핑) ============
-CAND_DIM = {
-    "AGE":    ["AGE","연령","연령대"],
-    "BRAND":  ["ORG_CAR_MAKER_KOR","브랜드","MANUFACTURER"],
-    "MODEL":  ["CAR_MOEL_DT","CAR_MODEL_KOR","모델"],
-    "FUEL":   ["FUEL","USE_FUEL_NM","연료"],
-    "IMPORT": ["CL_HMMD_IMP_SE_NM","국산수입","세그먼트"],
-    "CNT":    ["CNT","count","대수"],
-    # 있으면 활용 (없어도 동작)
-    "SEG_BT": ["CAR_BT","외형"],
-    "SEG_SZ": ["CAR_SZ","차급"],
-    "EXTRACT_DE": ["EXTRACT_DE","연월","날짜"],
-}
-CAND_SEG = {
-    "EXTRACT_DE": ["EXTRACT_DE","연월","날짜"],
-    "SEG_SZ":     ["CAR_SZ","차급"],
-    "SEG_BT":     ["CAR_BT","외형"],
-    "FUEL":       ["USE_FUEL_NM","FUEL","연료"],
-    "CNT":        ["CNT","대수"],
+DIMENSION_LABELS = {
+    "month": "월",
+    "brand": "브랜드",
+    "fuel": "연료",
+    "body": "차형",
+    "size": "차급",
+    "region": "지역",
+    "origin": "국산/수입",
+    "age": "연령대",
+    "car_use": "용도",
 }
 
-# 값 사전(외형/차급/연료)
-BODY_TYPE_WORDS = {
-    "suv":"SUV","세단":"세단","rv":"RV","해치백":"해치백",
-    "픽업":"픽업트럭","픽업트럭":"픽업트럭","컨버터블":"컨버터블",
-    "쿠페":"쿠페","왜건":"왜건","웨건":"왜건","밴":"밴","미니밴":"밴",
-}
-SIZE_WORDS = {
-    "경형":"경형","소형":"소형","준중형":"준중형","중형":"중형",
-    "준대형":"준대형","대형":"대형",
-}
-FUEL_WORDS = {
-    "휘발유":"휘발유","가솔린":"휘발유",
-    "경유":"경유","디젤":"경유",
-    "전기":"전기","ev":"전기",
-    "하이브리드":"하이브리드",
-    "lpg":"엘피지","엘피지":"엘피지",
-}
 
-def _resolve_cols(df: pd.DataFrame | None, cand: Dict[str, List[str]]) -> Dict[str, Optional[str]]:
-    if not isinstance(df, pd.DataFrame):
-        return {k: None for k in cand}
-    lower = {c.lower(): c for c in df.columns}
-    out: Dict[str, Optional[str]] = {}
-    for key, options in cand.items():
-        hit = None
-        for name in options:
-            if name in df.columns: hit = name; break
-            if name.lower() in lower: hit = lower[name.lower()]; break
-        out[key] = hit
+def _safe_str(value: Any) -> str:
+    if pd.isna(value):
+        return "-"
+    text = str(value).strip()
+    return text if text else "-"
+
+
+def _month_label(value: Any) -> str:
+    text = re.sub(r"\D", "", _safe_str(value))
+    if len(text) == 6:
+        return f"{text[:4]}-{text[4:]}"
+    return _safe_str(value)
+
+
+def _tokenize(text: str) -> list[str]:
+    return re.findall(r"[0-9]+|[가-힣A-Za-z]+", text.lower())
+
+
+def _keyword_score(question_tokens: set[str], text: str) -> float:
+    doc_tokens = _tokenize(text)
+    if not doc_tokens:
+        return 0.0
+    overlap = sum(1 for token in doc_tokens if token in question_tokens)
+    if overlap == 0:
+        return 0.0
+    unique_count = len(set(doc_tokens))
+    return overlap / math.sqrt(max(unique_count, 1))
+
+
+def _read_mart(name: str, columns: list[str] | None = None) -> pd.DataFrame:
+    return dl.load_parquet(MARTS_DIR / name, columns=columns)
+
+
+def _normalize_detail(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    if "CNT" not in out.columns:
+        out["CNT"] = 1
+    out["CNT"] = pd.to_numeric(out["CNT"], errors="coerce").fillna(0).astype(int)
+    if "EXTRACT_DE" in out.columns:
+        out["EXTRACT_DE"] = pd.to_numeric(out["EXTRACT_DE"], errors="coerce").fillna(0).astype(int)
+        out["MONTH"] = out["EXTRACT_DE"].astype(str).str.zfill(6).str[:6]
     return out
 
-# ============ 컨텍스트 로드 ============
 
-def load_context() -> Dict[str, Any]:
-    """
-    data_loader에서 모두 적재, 컬럼 매핑/값 카탈로그 생성, 연월 표준화.
-    반환: {frames, colmaps, has_er_detail, catalog}
-    """
-    from app_core import data_loader as dl
-    ov = dl.get_overview_data(base_dir="data")
-    nr = dl.get_newreg_data(base_dir="data")
-    er = dl.get_ersr_data(base_dir="data")
+def _append_docs(
+    docs: list[dict[str, Any]],
+    grouped: pd.DataFrame,
+    source_key: str,
+    dimension_key: str,
+    label_col: str,
+    month_col: str = "MONTH",
+) -> None:
+    for row in grouped.itertuples(index=False):
+        month_value = getattr(row, month_col, None)
+        label_value = getattr(row, label_col, None)
+        count_value = int(getattr(row, "CNT", 0))
+        month_text = _month_label(month_value)
+        label_text = _safe_str(label_value)
+        source_name = SOURCE_LABELS.get(source_key, source_key)
+        dim_name = DIMENSION_LABELS.get(dimension_key, dimension_key)
+        text = f"{source_name} 데이터에서 {month_text} {dim_name} {label_text} 등록대수는 {count_value:,}대입니다."
+        docs.append(
+            {
+                "source": source_key,
+                "source_label": source_name,
+                "month": month_text,
+                "dimension": dimension_key,
+                "dimension_label": dim_name,
+                "label": label_text,
+                "value": count_value,
+                "text": text,
+            }
+        )
 
-    frames: Dict[str, pd.DataFrame | None] = {
-        "신규(세그)": ov["new_seg"],
-        "이전(세그)": ov["used_seg"],
-        "말소(세그)": ov["er_seg"],
-        "누적 상세":  nr["dim"],
-        "말소 상세":  er.get("monthly"),
+
+def _build_detail_docs(df: pd.DataFrame, source_key: str) -> list[dict[str, Any]]:
+    docs: list[dict[str, Any]] = []
+    out = _normalize_detail(df)
+    if out.empty or "MONTH" not in out.columns:
+        return docs
+
+    monthly = out.groupby("MONTH", as_index=False)["CNT"].sum()
+    for row in monthly.itertuples(index=False):
+        month_text = _month_label(row.MONTH)
+        count_value = int(row.CNT)
+        source_name = SOURCE_LABELS.get(source_key, source_key)
+        docs.append(
+            {
+                "source": source_key,
+                "source_label": source_name,
+                "month": month_text,
+                "dimension": "month",
+                "dimension_label": "월",
+                "label": month_text,
+                "value": count_value,
+                "text": f"{source_name} 데이터에서 {month_text} 전체 등록대수는 {count_value:,}대입니다.",
+            }
+        )
+
+    dim_map = {
+        "ORG_CAR_MAKER_KOR": "brand",
+        "USE_FUEL_NM": "fuel",
+        "CAR_BT": "body",
+        "CAR_SZ": "size",
+        "JUSO_SIDO": "region",
+        "CL_HMMD_IMP_SE_NM": "origin",
+        "SOU_AGE": "age",
     }
-    colmaps = {
-        k: _resolve_cols(frames[k], CAND_SEG if "세그" in k else CAND_DIM) for k in frames
-    }
-
-    # EXTRACT_DE → 'YYYYMM' 문자열 통일
-    def _normalize_ym(df: pd.DataFrame, col: str):
-        if df is None or col not in df.columns: return
-        def to_ym(v):
-            if pd.isna(v): return pd.NA
-            s = str(v).strip().replace(".0","")
-            m = re.search(r"(20\d{2})\D?(\d{1,2})", s)
-            if m:
-                y, mo = int(m.group(1)), int(m.group(2)); return f"{y:04d}{mo:02d}"
-            try:
-                iv = int(float(s)); y, mo = iv//100, iv%100; return f"{y:04d}{mo:02d}"
-            except: return s
-        df[col] = df[col].map(to_ym)
-
-    for key in ("신규(세그)","이전(세그)","말소(세그)","누적 상세","말소 상세"):
-        c = colmaps[key].get("EXTRACT_DE")
-        if c and isinstance(frames[key], pd.DataFrame): _normalize_ym(frames[key], c)
-
-    # 값 카탈로그(브랜드/모델/연료/외형/차급)
-    catalog: Dict[str, set] = {
-        "brands": set(),
-        "models": set(),
-        "fuels":  set(),
-        "bodys":  set(),
-        "sizes":  set(),
-    }
-    dim = frames["누적 상세"]; cmap = colmaps["누적 상세"]
-    if isinstance(dim, pd.DataFrame):
-        if cmap.get("BRAND"): catalog["brands"] = set(dim[cmap["BRAND"]].dropna().astype(str).unique())
-        if cmap.get("MODEL"): catalog["models"] = set(dim[cmap["MODEL"]].dropna().astype(str).unique())
-        if cmap.get("FUEL"):  catalog["fuels"]  = set(dim[cmap["FUEL"]].dropna().astype(str).unique())
-        # 일부 dim에 외형/차급이 있을 수도 있음
-        if cmap.get("SEG_BT"): catalog["bodys"] = set(dim[cmap["SEG_BT"]].dropna().astype(str).unique())
-        if cmap.get("SEG_SZ"): catalog["sizes"] = set(dim[cmap["SEG_SZ"]].dropna().astype(str).unique())
-
-    seg_any = frames["신규(세그)"]; cmap_seg = colmaps["신규(세그)"]
-    if isinstance(seg_any, pd.DataFrame):
-        if cmap_seg.get("FUEL"):   catalog["fuels"] |= set(seg_any[cmap_seg["FUEL"]].dropna().astype(str).unique())
-        if cmap_seg.get("SEG_BT"): catalog["bodys"] |= set(seg_any[cmap_seg["SEG_BT"]].dropna().astype(str).unique())
-        if cmap_seg.get("SEG_SZ"): catalog["sizes"] |= set(seg_any[cmap_seg["SEG_SZ"]].dropna().astype(str).unique())
-
-    return {
-        "frames": frames,
-        "colmaps": colmaps,
-        "has_er_detail": isinstance(frames["말소 상세"], pd.DataFrame),
-        "catalog": catalog,
-    }
-
-# ============ 질의 해석 ============
-
-def parse_year_month(q: str) -> Optional[str]:
-    s = q.replace(" ", "")
-    m = re.search(r"(20\d{2})[./\-]?(0?[1-9]|1[0-2])|20(\d{2})년(0?[1-9]|1[0-2])월", s)
-    if m:
-        y = m.group(1) or f"20{m.group(3)}"; mo = m.group(2) or m.group(4)
-        return f"{int(y):04d}{int(mo):02d}"
-    m2 = re.search(r"(20\d{2})(0[1-9]|1[0-2])", s)
-    return f"{int(m2.group(1)):04d}{int(m2.group(2)):02d}" if m2 else None
-
-def detect_source(question: str, has_er_detail: bool) -> str:
-    q = question
-    if "신규" in q: return "신규(세그)"
-    if ("이전" in q) or ("중고" in q): return "이전(세그)"
-    if "말소" in q: return "말소 상세" if has_er_detail else "말소(세그)"
-    if any(w in q for w in ["차급","외형","월","월별"]): return "신규(세그)"
-    return "누적 상세"
-
-def _find_value_in_text(text: str, candidates: set) -> Optional[str]:
-    """
-    텍스트에 포함된 후보값을 부분일치로 탐색(길이 긴 것 우선).
-    """
-    tl = text.lower()
-    for cand in sorted({str(x) for x in candidates}, key=lambda s: -len(s)):
-        if cand and cand.lower() in tl:
-            return cand
-    return None
-
-def parse_query(question: str, source: str, catalog: Dict[str, set]) -> Dict[str, Any]:
-    q = question.strip().lower()
-
-    # 그룹 결정
-    hints_group = ["연령","연령대","나이","브랜드","제조사","모델","차종","연료","국산/수입","세그먼트","차급","외형","월","월별"]
-    if ("대수" in q) and not any(h in question for h in hints_group):
-        group = "TOTAL"
-    elif any(k in question for k in ["총","전체","합계","대수만","전체대수"]):
-        group = "TOTAL"
-    else:
-        if source in ("누적 상세","말소 상세"):
-            gmap = {"연령":"AGE","연령대":"AGE","나이":"AGE","브랜드":"BRAND","제조사":"BRAND",
-                    "모델":"MODEL","차종":"MODEL","연료":"FUEL","국산/수입":"IMPORT","세그먼트":"IMPORT"}
-            default = "BRAND"
-        else:
-            gmap = {"차급":"SEG_SZ","외형":"SEG_BT","연료":"FUEL","월별":"EXTRACT_DE","월":"EXTRACT_DE"}
-            default = "SEG_SZ"
-        group = next((v for k,v in gmap.items() if k in question), default)
-
-    # 필터
-    filters: List[Tuple[str,str,str]] = []
-
-    # 연료
-    for k,v in FUEL_WORDS.items():
-        if k in q: filters.append(("FUEL","==", v)); break
-
-    # 국산/수입
-    if "국산" in question: filters.append(("IMPORT","==","국산"))
-    elif "수입" in question: filters.append(("IMPORT","==","수입"))
-
-    # 외형·차급 값(세분화)
-    for k,v in BODY_TYPE_WORDS.items():
-        if k in q: filters.append(("SEG_BT","==", v)); break
-    for k,v in SIZE_WORDS.items():
-        if k in q: filters.append(("SEG_SZ","==", v)); break
-
-    # 브랜드/모델(부분일치)
-    brand_hit = _find_value_in_text(question, catalog.get("brands", set()))
-    model_hit = _find_value_in_text(question, catalog.get("models", set()))
-    if brand_hit: filters.append(("BRAND","~", brand_hit))
-    if model_hit: filters.append(("MODEL","~", model_hit))
-
-    # 연월
-    ym = parse_year_month(question)
-    if ym: filters.append(("EXTRACT_DE","==", ym))
-
-    # 상위N/정렬
-    m = re.search(r"(상위|top)\s*(\d+)", question, re.IGNORECASE)
-    topn = int(m.group(2)) if m else (10 if ("상위" in question or "top" in question.lower()) else None)
-    sort = "asc" if ("오름차순" in question or "asc" in question.lower()) else "desc"
-
-    # 등록구분 힌트(메타 용)
-    reg_hint = "신규" if "신규" in question else "이전" if ("이전" in question or "중고" in question) else "말소" if "말소" in question else None
-
-    return {"group": group, "filters": filters, "topn": topn, "sort": sort, "reg_hint": reg_hint}
-
-def route_source(question: str, source: str, plan: Dict[str,Any], colmaps: Dict[str,Dict[str,Optional[str]]], has_er_detail: bool) -> str:
-    """
-    필요한 컬럼을 만족하는 소스로 자동 재라우팅
-    """
-    need_cols = set()
-    if plan["group"] != "TOTAL": need_cols.add(plan["group"])
-    for key,_,_ in plan["filters"]:
-        need_cols.add(key)
-
-    def has_cols(src: str) -> bool:
-        cmap = colmaps.get(src, {})
-        for k in need_cols:
-            if k == "TOTAL": continue
-            if cmap.get(k) is None: return False
-        return True
-
-    if has_cols(source):
-        return source
-
-    want_seg = any(k in need_cols for k in ["SEG_SZ","SEG_BT","EXTRACT_DE"])
-    want_dim = any(k in need_cols for k in ["AGE","BRAND","MODEL","IMPORT","FUEL"])
-    if want_seg:
-        if "말소" in question: return "말소(세그)"
-        if "이전" in question or "중고" in question: return "이전(세그)"
-        return "신규(세그)"
-    if want_dim:
-        if "말소" in question and has_er_detail: return "말소 상세"
-        return "누적 상세"
-
-    return source
-
-# ============ 집계 + 메타 ============
-
-def execute(df: pd.DataFrame, plan: Dict[str, Any], colmap: Dict[str, Optional[str]], mode_label: str) -> Tuple[pd.DataFrame, dict]:
-    """
-    op:
-      '=='  : 완전일치
-      '~'   : 부분일치(대소문자 무시)
-    """
-    if not isinstance(df, pd.DataFrame): raise ValueError(f"'{mode_label}' 데이터프레임이 유효하지 않습니다.")
-    d = df.copy()
-    rows_before = len(d)
-
-    applied = []
-    for key, op, val in plan["filters"]:
-        real = colmap.get(key)
-        if real and real in d.columns:
-            if op == "==":
-                d = d[d[real] == val]
-            elif op == "~":
-                d = d[d[real].astype(str).str.contains(str(val), case=False, na=False)]
-            applied.append({"key": key, "op": op, "val": val,
-                            "real_col": real, "display_val": _fmt_ym(val) if key=="EXTRACT_DE" else val})
-
-    rows_after = len(d)
-
-    mcol = colmap.get("CNT")
-    if not mcol: raise ValueError(f"'{mode_label}'에서 CNT 컬럼을 찾을 수 없습니다.")
-    sum_after = int(d[mcol].sum())
-
-    if plan["group"] == "TOTAL":
-        out = pd.DataFrame([{"구분":"합계","대수": sum_after}])
-        meta = {"source":mode_label,"group":plan["group"],"filters":applied,"sort":plan["sort"],"topn":plan["topn"],
-                "rows_before":rows_before,"rows_after":rows_after,"sum_after":sum_after}
-        return out, meta
-
-    gcol = colmap.get(plan["group"])
-    if not gcol or gcol not in d.columns:
-        raise ValueError(f"요청한 기준({plan['group']})은(는) '{mode_label}' 데이터에서 지원되지 않습니다.")
-
-    out = d.groupby(gcol, dropna=False)[mcol].sum().reset_index()
-    out = out.rename(columns={gcol:"구분", mcol:"대수"})
-    out["대수"] = out["대수"].astype(int)
-
-    ascending = plan["sort"]=="asc"
-    out = out.sort_values("대수", ascending=ascending)
-    if plan["topn"]: out = out.head(plan["topn"])
-
-    meta = {"source":mode_label,"group":plan["group"],"filters":applied,"sort":plan["sort"],"topn":plan["topn"],
-            "rows_before":rows_before,"rows_after":rows_after,
-            "sum_after": int(out["대수"].sum()) if not out.empty else 0}
-    return out, meta
-
-# ============ 상세 정보(브랜드/모델) ============
-
-def vehicle_specs_from_sources(frames: Dict[str, pd.DataFrame],
-                               colmaps: Dict[str, Dict[str, Optional[str]]],
-                               brand_like: Optional[str],
-                               model_like: Optional[str],
-                               include: tuple[str, ...] = ("누적 상세", "신규(세그)")) -> pd.DataFrame:
-    """
-    누적 상세 + (신규/이전/말소) 세그 소스들에서 스펙 항목을 '합집합'으로 취합해
-    대수 없이 '항목/값' 2열 표로 반환.
-    - 브랜드/모델은 DIM(누적 상세)에서만 부분일치 필터를 적용.
-    - 연료/차급/외형은 DIM/세그 모두에서 고유값을 모아 합집합.
-    - 국산/수입은 DIM에 있을 때만 표기.
-    """
-    # 합집합 컨테이너
-    brands: set[str] = set()
-    models: set[str] = set()
-    fuels:  set[str] = set()
-    sizes:  set[str] = set()
-    bodys:  set[str] = set()
-    imports:set[str] = set()
-
-    # 1) DIM(누적 상세): 브랜드/모델 필터 적용
-    if "누적 상세" in include and isinstance(frames.get("누적 상세"), pd.DataFrame):
-        dim = frames["누적 상세"].copy()
-        cmap = colmaps.get("누적 상세", {})
-        bcol, mcol = cmap.get("BRAND"), cmap.get("MODEL")
-
-        if brand_like and bcol in dim.columns:
-            dim = dim[dim[bcol].astype(str).str.contains(str(brand_like), case=False, na=False)]
-        if model_like and mcol in dim.columns:
-            dim = dim[dim[mcol].astype(str).str.contains(str(model_like), case=False, na=False)]
-
-        def add_uniques(df: pd.DataFrame, col_key: str, target: set[str]):
-            col = cmap.get(col_key)
-            if col and col in df.columns:
-                target |= set(df[col].dropna().astype(str).unique())
-
-        add_uniques(dim, "BRAND", brands)
-        add_uniques(dim, "MODEL", models)
-        add_uniques(dim, "FUEL",  fuels)
-        add_uniques(dim, "SEG_SZ", sizes)
-        add_uniques(dim, "SEG_BT", bodys)
-        add_uniques(dim, "IMPORT", imports)
-
-    # 2) 세그 소스들: 브랜드/모델 컬럼이 보통 없으므로 연료/차급/외형만 합집합
-    for src in include:
-        if src == "누적 상세":
+    for col, dim_key in dim_map.items():
+        if col not in out.columns:
             continue
-        df = frames.get(src)
-        cmap = colmaps.get(src, {})
-        if not isinstance(df, pd.DataFrame):
-            continue
-        def add(df, key, bag):
-            col = cmap.get(key)
-            if col and col in df.columns:
-                bag |= set(df[col].dropna().astype(str).unique())
-        add(df, "FUEL",  fuels)
-        add(df, "SEG_SZ", sizes)
-        add(df, "SEG_BT", bodys)
+        grouped = (
+            out.groupby(["MONTH", col], as_index=False)["CNT"]
+            .sum()
+            .sort_values(["MONTH", "CNT"], ascending=[True, False])
+        )
+        grouped = grouped.groupby("MONTH", group_keys=False).head(12).reset_index(drop=True)
+        _append_docs(docs, grouped, source_key, dim_key, col)
 
-    # 3) 항목/값 표 구성
-    def fmt(values: set[str]) -> str:
-        vals = sorted({v for v in (values or set()) if v and v != "nan"})
-        return ", ".join(vals) if vals else "-"
+    return docs
 
-    rows = [
-        ("브랜드",      fmt(brands)),
-        ("모델",        fmt(models)),
-        ("연료",        fmt(fuels)),
-        ("차급",        fmt(sizes)),
-        ("외형",        fmt(bodys)),
-        ("국산/수입",   fmt(imports)),   # DIM에 없으면 '-'로 남음
-    ]
-    return pd.DataFrame(rows, columns=["항목", "값"])
 
-def detect_spec_intent(question: str, catalog: Dict[str, set]) -> tuple[bool, str | None, str | None]:
-    """
-    '쏘나타 알려줘', '카니발 스펙'처럼 스펙 의도면 True와 함께
-    brand_like / model_like(부분일치 키워드) 반환.
-    - '대수/점유율/상위/추이/합계' 등 집계 단어가 섞이면 False.
-    """
-    txt = question.lower()
+def _build_car_use_docs(df: pd.DataFrame) -> list[dict[str, Any]]:
+    docs: list[dict[str, Any]] = []
+    if df.empty:
+        return docs
 
-    # 집계 의도 신호어가 있으면 스펙 모드 해제
-    agg_words = ["대수", "점유율", "비율", "상위", "top", "추이", "증감", "합계", "총"]
-    if any(w in txt for w in agg_words):
-        return False, None, None
+    work = df.copy()
+    if "YEAR" not in work.columns:
+        year_cols = [col for col in work.columns if str(col).isdigit()]
+        if year_cols:
+            work = work.melt(
+                id_vars=[col for col in ["CAR_USE", "CAR_USE_DETAL"] if col in work.columns],
+                value_vars=year_cols,
+                var_name="YEAR",
+                value_name="CNT",
+            )
+    work["YEAR"] = pd.to_numeric(work["YEAR"], errors="coerce")
+    work["CNT"] = pd.to_numeric(work["CNT"], errors="coerce").fillna(0).astype(int)
+    work = work.dropna(subset=["YEAR"])
+    if work.empty:
+        return docs
 
-    # 스펙/정보 의도 신호어
-    spec_words = ["알려줘", "정보", "스펙", "자세히", "어떤", "무슨"]
-    if not any(w in txt for w in spec_words):
-        return False, None, None
+    grouped = (
+        work.groupby(["YEAR", "CAR_USE"], as_index=False)["CNT"]
+        .sum()
+        .sort_values(["YEAR", "CNT"], ascending=[True, False])
+    )
+    grouped = grouped.groupby("YEAR", group_keys=False).head(10).reset_index(drop=True)
+    for row in grouped.itertuples(index=False):
+        year_text = str(int(row.YEAR))
+        label_text = _safe_str(row.CAR_USE)
+        count_value = int(row.CNT)
+        docs.append(
+            {
+                "source": "car_use",
+                "source_label": SOURCE_LABELS["car_use"],
+                "month": year_text,
+                "dimension": "car_use",
+                "dimension_label": "용도",
+                "label": label_text,
+                "value": count_value,
+                "text": f"용도연도집계 데이터에서 {year_text}년 용도 {label_text} 등록대수는 {count_value:,}대입니다.",
+            }
+        )
+    return docs
 
-    # 카탈로그에서 브랜드/모델 후보 추출(부분일치)
-    brand_like = _find_value_in_text(question, catalog.get("brands", set()))
-    model_like = _find_value_in_text(question, catalog.get("models", set()))
 
-    if brand_like or model_like:
-        return True, brand_like, model_like
-    return False, None, None
-# ============ 차트/표시 ============
+@st.cache_data(ttl=3600, show_spinner="RAG 문서를 준비하는 중입니다...")
+def load_rag_documents() -> pd.DataFrame:
+    docs: list[dict[str, Any]] = []
 
-def make_chart(df_out: pd.DataFrame):
-    if df_out.shape[0] <= 1: return None
-    if df_out.shape[0] <= 8: return px.pie(df_out, values="대수", names="구분", hole=.3)
-    return px.bar(df_out, x="구분", y="대수")
+    new_df = _read_mart("newreg_detail.parquet")
+    used_df = _read_mart("used_detail.parquet")
+    erase_df = _read_mart("erase_detail.parquet")
+    car_use_df = _read_mart("car_use_yearly_summary.parquet")
 
-def render_condition_summary(meta: dict) -> str:
-    src = meta.get("source","")
-    group = DISPLAY_NAME.get(meta.get("group",""), meta.get("group",""))
-    fs = []
-    for f in meta.get("filters", []):
-        key = DISPLAY_NAME.get(f.get("key"), f.get("key"))
-        val = f.get("display_val") or f.get("val")
-        fs.append(f"{key}={val}")
-    filt_str = ", ".join(fs) if fs else "없음"
-    sort = "오름차순" if meta.get("sort")=="asc" else "내림차순"
-    topn = meta.get("topn"); topn_str = f"{topn}" if topn else "해당 없음"
-    rb, ra, s = meta.get("rows_before"), meta.get("rows_after"), meta.get("sum_after")
-    data_line = f"- 데이터: 적용 전 {rb:,} → 적용 후 {ra:,} (합계 {int(s):,}대)\n" if rb is not None else ""
-    return (f"**적용 조건**\n"
-            f"- 데이터 소스: {src}\n"
-            f"- 그룹 기준: {group}\n"
-            f"- 필터: {filt_str}\n"
-            f"- 정렬: {sort} | 상위 N: {topn_str}\n"
-            f"{data_line}")
+    docs.extend(_build_detail_docs(new_df, "newreg"))
+    docs.extend(_build_detail_docs(used_df, "usedreg"))
+    docs.extend(_build_detail_docs(erase_df, "erase"))
+    docs.extend(_build_car_use_docs(car_use_df))
 
-# ============ LLM 설명(유도값 허용) ============
+    return pd.DataFrame(docs)
 
-def llm_explain(plan: Dict[str, Any], df_out: pd.DataFrame, question: str, api_key: str,
-                system_prompt: Optional[str] = None, model: str = "gpt-3.5-turbo") -> str:
-    """
-    - '가상의 수치' 생성 금지
-    - df_out에 존재하는 값으로부터의 비율(%), 평균, 점유율 등 '유도값' 계산은 허용
-    """
-    if not api_key: return ""
+
+def dataset_options(doc_df: pd.DataFrame) -> list[str]:
+    labels = ["전체"]
+    for key in ["newreg", "usedreg", "erase", "car_use"]:
+        if key in set(doc_df["source"].astype(str)):
+            labels.append(SOURCE_LABELS[key])
+    return labels
+
+
+def retrieve_documents(
+    question: str,
+    doc_df: pd.DataFrame,
+    source_label: str = "전체",
+    top_k: int = 8,
+) -> pd.DataFrame:
+    if doc_df.empty:
+        return doc_df.copy()
+
+    filtered = doc_df.copy()
+    if source_label != "전체":
+        source_key = next((k for k, v in SOURCE_LABELS.items() if v == source_label), None)
+        if source_key:
+            filtered = filtered[filtered["source"] == source_key]
+
+    q_tokens = set(_tokenize(question))
+    if not q_tokens:
+        q_tokens = {question.lower()}
+
+    scored = filtered.copy()
+    scored["score"] = scored["text"].map(lambda text: _keyword_score(q_tokens, text))
+
+    month_hits = re.findall(r"20\d{2}[.\-/년 ]?(0?[1-9]|1[0-2])", question)
+    if month_hits:
+        normalized = _month_label(re.sub(r"\D", "", re.search(r"20\d{2}[.\-/년 ]?(0?[1-9]|1[0-2])", question).group(0)))
+        scored.loc[scored["month"] == normalized, "score"] += 2.5
+
+    for keyword, source_key in [("신규", "newreg"), ("이전", "usedreg"), ("중고", "usedreg"), ("말소", "erase"), ("용도", "car_use")]:
+        if keyword in question:
+            scored.loc[scored["source"] == source_key, "score"] += 1.5
+
+    has_matches = scored["score"].gt(0).any()
+    if not has_matches:
+        recent = (
+            scored.sort_values(["month", "value"], ascending=[False, False])
+            .head(top_k)
+            .reset_index(drop=True)
+        )
+        return recent
+
+    return (
+        scored.sort_values(["score", "value"], ascending=[False, False])
+        .head(top_k)
+        .reset_index(drop=True)
+    )
+
+
+def build_context_block(retrieved_df: pd.DataFrame) -> str:
+    if retrieved_df.empty:
+        return "검색된 근거 문서가 없습니다."
+    lines = []
+    for idx, row in enumerate(retrieved_df.itertuples(index=False), start=1):
+        lines.append(f"{idx}. {row.text}")
+    return "\n".join(lines)
+
+
+def build_fallback_answer(question: str, retrieved_df: pd.DataFrame) -> str:
+    if retrieved_df.empty:
+        return "관련 근거를 찾지 못했습니다. 질문에 월, 등록구분, 브랜드, 연료 같은 조건을 조금 더 넣어주세요."
+
+    top = retrieved_df.iloc[0]
+    same_group = retrieved_df[
+        (retrieved_df["source"] == top["source"])
+        & (retrieved_df["dimension"] == top["dimension"])
+        & (retrieved_df["month"] == top["month"])
+    ].copy()
+    same_group = same_group.sort_values("value", ascending=False)
+
+    message = f"{top['source_label']} 기준으로 가장 직접적인 근거는 '{top['text']}'입니다."
+    if len(same_group) > 1:
+        leader = same_group.iloc[0]
+        total = int(same_group["value"].sum())
+        share = (int(leader["value"]) / total * 100) if total else 0.0
+        message += f" 같은 기준 내에서는 {leader['dimension_label']} '{leader['label']}'가 {int(leader['value']):,}대로 가장 크고 비중은 {share:.1f}%입니다."
+    return message
+
+
+def answer_with_huggingface(
+    question: str,
+    retrieved_df: pd.DataFrame,
+    api_token: str,
+    model_name: str = DEFAULT_HF_MODEL,
+) -> str:
+    if not api_token:
+        return build_fallback_answer(question, retrieved_df)
+
+    context_block = build_context_block(retrieved_df)
+    system_prompt = (
+        "당신은 자동차 등록 데이터 분석 도우미다. "
+        "반드시 제공된 근거 문장만 사용해 답하고, 근거에 없는 수치는 추정하지 마라. "
+        "답변은 한국어 3~5문장으로 간결하게 작성하고, 필요하면 마지막 문장에 근거 기준을 짧게 덧붙여라."
+    )
+    user_prompt = (
+        f"[질문]\n{question}\n\n"
+        f"[근거 문서]\n{context_block}\n\n"
+        "[작성 규칙]\n"
+        "- 근거 문서에 있는 숫자만 사용\n"
+        "- 서로 다른 문서를 비교할 때는 문장 안에서 비교 기준을 명시\n"
+        "- 답변 끝에 '근거: ...' 형태로 핵심 기준 1줄 첨부"
+    )
+
     try:
-        from openai import OpenAI
-        client = OpenAI(api_key=api_key)
-        sys = system_prompt or (
-            "너는 차량 등록 통계를 설명하는 데이터 분석가다. "
-            "오직 내가 제공하는 표(df_out)의 값만을 근거로 설명한다. "
-            "숫자를 새로 '추정/창작'하지 말고, 표의 값으로부터 파생된 비율(%), 평균, 점유율, 단순 합/차 등은 계산해도 된다. "
-            "근거가 되는 수치(분모/분자)를 함께 언급하라. 핵심 2~5문장, 불릿 금지."
+        from huggingface_hub import InferenceClient
+
+        client = InferenceClient(api_key=api_token)
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=500,
+            temperature=0.2,
         )
-        payload = {
-            "question": question,
-            "plan": plan,
-            "stats": df_out.to_dict(orient="records"),
-        }
-        res = client.chat.completions.create(
-            model=model, temperature=0.2,
-            messages=[{"role":"system","content":sys},
-                      {"role":"user","content":json.dumps(payload, ensure_ascii=False)}]
-        )
-        return res.choices[0].message.content.strip()
-    except Exception as e:
-        return f"(LLM 설명 오류) {e}"
+        return response.choices[0].message.content.strip()
+    except Exception as exc:
+        return f"{build_fallback_answer(question, retrieved_df)}\n\n(Hugging Face 호출 오류: {exc})"

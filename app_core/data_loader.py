@@ -16,17 +16,26 @@ MARTS_DIRNAME = "marts"
 
 
 @st.cache_data(ttl=3600)
+def _load_excel_cached(path_str: str, sheet_name=0, dtype=None, mtime_ns: int | None = None) -> pd.DataFrame:
+    return pd.read_excel(path_str, sheet_name=sheet_name, dtype=dtype, engine="openpyxl")
+
+
 def load_excel(path: Path, sheet_name=0, dtype=None) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"[data_loader] file not found: {path}")
-    return pd.read_excel(path, sheet_name=sheet_name, dtype=dtype, engine="openpyxl")
+    return _load_excel_cached(str(path), sheet_name=sheet_name, dtype=dtype, mtime_ns=path.stat().st_mtime_ns)
 
 
 @st.cache_data(ttl=3600)
+def _load_workbook_cached(path_str: str, sheets: tuple[str, ...] | str | None = None, mtime_ns: int | None = None) -> dict[str, pd.DataFrame] | pd.DataFrame:
+    return pd.read_excel(path_str, sheet_name=sheets, engine="openpyxl")
+
+
 def load_workbook(path: Path, sheets: list[str] | None = None) -> dict[str, pd.DataFrame]:
     if not path.exists():
         raise FileNotFoundError(f"[data_loader] file not found: {path}")
-    dfs = pd.read_excel(path, sheet_name=sheets, engine="openpyxl")
+    sheet_key = tuple(sheets) if isinstance(sheets, list) else sheets
+    dfs = _load_workbook_cached(str(path), sheets=sheet_key, mtime_ns=path.stat().st_mtime_ns)
     if isinstance(dfs, pd.DataFrame):
         key = sheets if isinstance(sheets, str) else "Sheet1"
         dfs = {key: dfs}
@@ -34,17 +43,31 @@ def load_workbook(path: Path, sheets: list[str] | None = None) -> dict[str, pd.D
 
 
 @st.cache_data(ttl=3600)
+def _load_csv_cached(path_str: str, dtype=None, parse_dates=None, mtime_ns: int | None = None) -> pd.DataFrame:
+    return pd.read_csv(path_str, dtype=dtype, parse_dates=parse_dates)
+
+
 def load_csv(path: Path, dtype=None, parse_dates=None) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"[data_loader] file not found: {path}")
-    return pd.read_csv(path, dtype=dtype, parse_dates=parse_dates)
+    return _load_csv_cached(
+        str(path),
+        dtype=dtype,
+        parse_dates=parse_dates,
+        mtime_ns=path.stat().st_mtime_ns,
+    )
 
 
 @st.cache_data(ttl=3600)
+def _load_parquet_cached(path_str: str, columns: tuple[str, ...] | None = None, mtime_ns: int | None = None) -> pd.DataFrame:
+    return pd.read_parquet(path_str, columns=list(columns) if columns else None)
+
+
 def load_parquet(path: Path, columns: list[str] | None = None) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"[data_loader] file not found: {path}")
-    return pd.read_parquet(path, columns=columns)
+    column_key = tuple(columns) if columns is not None else None
+    return _load_parquet_cached(str(path), columns=column_key, mtime_ns=path.stat().st_mtime_ns)
 
 
 def _marts_dir(base: Path) -> Path:
@@ -86,7 +109,7 @@ def _build_monthly_detail(raw_df: pd.DataFrame) -> pd.DataFrame:
     ]
     use_cols = [col for col in dim_cols if col in raw_df.columns]
     return (
-        raw_df.groupby(["YEA", "MON", *use_cols], as_index=False)["CNT"]
+        raw_df.groupby(["YEA", "MON", *use_cols], as_index=False, dropna=False)["CNT"]
         .sum()
         .sort_values(["YEA", "MON"])
         .reset_index(drop=True)
@@ -96,7 +119,7 @@ def _build_monthly_detail(raw_df: pd.DataFrame) -> pd.DataFrame:
 def _build_segment_frame(raw_df: pd.DataFrame) -> pd.DataFrame:
     seg_cols = [col for col in ["EXTRACT_DE", "CAR_SZ", "CAR_BT", "USE_FUEL_NM"] if col in raw_df.columns]
     return (
-        raw_df.groupby(seg_cols, as_index=False)["CNT"]
+        raw_df.groupby(seg_cols, as_index=False, dropna=False)["CNT"]
         .sum()
         .sort_values("EXTRACT_DE")
         .reset_index(drop=True)
@@ -107,7 +130,11 @@ def _build_top_table(raw_df: pd.DataFrame) -> pd.DataFrame:
     latest_month = int(raw_df["EXTRACT_DE"].max())
     latest_df = raw_df[raw_df["EXTRACT_DE"] == latest_month].copy()
     grouped = (
-        latest_df.groupby(["CL_HMMD_IMP_SE_NM", "ORG_CAR_MAKER_KOR", "CAR_MOEL_DT"], as_index=False)["CNT"]
+        latest_df.groupby(
+            ["CL_HMMD_IMP_SE_NM", "ORG_CAR_MAKER_KOR", "CAR_MOEL_DT"],
+            as_index=False,
+            dropna=False,
+        )["CNT"]
         .sum()
         .sort_values(["CL_HMMD_IMP_SE_NM", "CNT"], ascending=[True, False])
     )

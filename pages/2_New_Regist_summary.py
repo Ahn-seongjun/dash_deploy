@@ -250,7 +250,6 @@ if selected_age:
 
 mask = build_period_mask(base_filtered_df["month"], period_map[period_label])
 filtered_df = base_filtered_df.loc[mask].copy()
-
 if filtered_df.empty:
     st.warning("선택한 조건에 해당하는 데이터가 없습니다. 필터를 조정해 주세요.")
     st.stop()
@@ -686,13 +685,16 @@ st.subheader(":material/settings: 상세 분포")
 row5_1, row5_2, row5_3, row5_4 = st.columns(4)
 
 with row5_1:
-    age_body = filtered_df.groupby(["AGE", "CAR_BT"], as_index=False)["CNT"].sum().sort_values("CNT", ascending=False)
-    age_order = age_body.groupby("AGE")["CNT"].sum().sort_values(ascending=False).index.tolist()
-    body_order = age_body.groupby("CAR_BT")["CNT"].sum().sort_values(ascending=False).head(6).index.tolist()
+    age_body = (
+        filtered_df.groupby(["AGE", "CAR_BT"], as_index=False, dropna=False)["CNT"]
+        .sum()
+        .sort_values("CNT", ascending=False)
+    )
+    age_order = age_body.groupby("AGE", dropna=False)["CNT"].sum().sort_values(ascending=False).index.tolist()
+    body_order = age_body.groupby("CAR_BT", dropna=False)["CNT"].sum().sort_values(ascending=False).index.tolist()
     heatmap_data = []
     for _, row in age_body.iterrows():
-        if row["CAR_BT"] in body_order:
-            heatmap_data.append([body_order.index(row["CAR_BT"]), age_order.index(row["AGE"]), int(row["CNT"])])
+        heatmap_data.append([body_order.index(row["CAR_BT"]), age_order.index(row["AGE"]), int(row["CNT"])])
 
     heatmap_options = {
         "title": {"text": "연령대-차형 Heatmap", "left": "center"},
@@ -715,7 +717,7 @@ with row5_1:
 
 with row5_2:
     owner_profile = (
-        filtered_df.groupby("OWNER_GB")
+        filtered_df.groupby("OWNER_GB", dropna=False)
         .apply(
             lambda g: pd.Series(
                 {
@@ -752,8 +754,17 @@ with row5_2:
     st_echarts(options=owner_options, height="450px", key="newreg_owner_bar")
 
 with row5_3:
-    monthly_origin = filtered_df.groupby(["month", "CL_HMMD_IMP_SE_NM"], as_index=False)["CNT"].sum().sort_values("month")
-    origin_labels = monthly_origin.groupby("CL_HMMD_IMP_SE_NM")["CNT"].sum().sort_values(ascending=False).index.tolist()
+    monthly_origin = (
+        filtered_df.groupby(["month", "CL_HMMD_IMP_SE_NM"], as_index=False, dropna=False)["CNT"]
+        .sum()
+        .sort_values("month")
+    )
+    origin_labels = (
+        monthly_origin.groupby("CL_HMMD_IMP_SE_NM", dropna=False)["CNT"]
+        .sum()
+        .sort_values(ascending=False)
+        .index.tolist()
+    )
     month_labels = sorted(monthly_origin["month"].dt.strftime("%Y-%m").unique().tolist())
     monthly_series = []
     for label in origin_labels:
@@ -778,7 +789,11 @@ with row5_3:
     st_echarts(options=monthly_mix_options, height="450px", key="newreg_origin_mix")
 
 with row5_4:
-    fuel_dist = filtered_df.groupby("FUEL", as_index=False)["CNT"].sum().sort_values("CNT", ascending=False)
+    fuel_dist = (
+        filtered_df.groupby("FUEL", as_index=False, dropna=False)["CNT"]
+        .sum()
+        .sort_values("CNT", ascending=False)
+    )
     fuel_options = {
         "title": {"text": "연료 비중", "left": "center"},
         "tooltip": {"trigger": "item", "formatter": "{b}: {c}대 ({d}%)"},
@@ -801,13 +816,13 @@ if region_col:
     st.caption(f"`{period_label}` 기준으로 지역별 친환경차(전기·하이브리드·수소) 등록 비중을 게이지와 순위로 확인합니다.")
 
     region_summary = (
-        filtered_df.groupby(region_col, as_index=False)
+        filtered_df.groupby(region_col, as_index=False, dropna=False)
         .agg(total_cnt=("CNT", "sum"))
         .sort_values("total_cnt", ascending=False)
     )
     eco_summary = (
         filtered_df[filtered_df["FUEL"].astype(str).isin(ECO_FUELS)]
-        .groupby(region_col, as_index=False)["CNT"]
+        .groupby(region_col, as_index=False, dropna=False)["CNT"]
         .sum()
         .rename(columns={"CNT": "eco_cnt"})
     )

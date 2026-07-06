@@ -26,6 +26,7 @@ def write_parquet(df: pd.DataFrame, name: str) -> None:
 
 def normalize_cnt(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
+    # Raw parquet is record-level data, so one row equals one registration unless CNT already exists.
     if "CNT" not in out.columns:
         out["CNT"] = 1
     out["CNT"] = pd.to_numeric(out["CNT"], errors="coerce").fillna(0).astype("int32")
@@ -50,7 +51,7 @@ def build_newreg_detail() -> None:
     ]
     df = normalize_cnt(read_parquet("newreg_2025_2026.parquet", columns=cols))
     grouped = (
-        df.groupby(cols, as_index=False)["CNT"]
+        df.groupby(cols, as_index=False, dropna=False)["CNT"]
         .sum()
         .sort_values(["EXTRACT_DE", "ORG_CAR_MAKER_KOR", "CAR_MOEL_DT"])
         .reset_index(drop=True)
@@ -70,7 +71,7 @@ def build_used_detail() -> None:
     ]
     df = normalize_cnt(read_parquet("usedreg_2025_2026.parquet", columns=cols))
     grouped = (
-        df.groupby(cols, as_index=False)["CNT"]
+        df.groupby(cols, as_index=False, dropna=False)["CNT"]
         .sum()
         .sort_values(["EXTRACT_DE", "ORG_CAR_MAKER_KOR", "CAR_MOEL_DT"])
         .reset_index(drop=True)
@@ -93,7 +94,7 @@ def build_erase_detail() -> None:
     df = normalize_cnt(read_parquet("ersrreg_2025_2026.parquet", columns=cols))
     df["F_YEAR"] = pd.to_numeric(df["F_YEAR"], errors="coerce").fillna(0).astype("int16")
     grouped = (
-        df.groupby(cols, as_index=False)["CNT"]
+        df.groupby(cols, as_index=False, dropna=False)["CNT"]
         .sum()
         .sort_values(["EXTRACT_DE", "ORG_CAR_MAKER_KOR", "CAR_MOEL_DT"])
         .reset_index(drop=True)

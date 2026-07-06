@@ -5,7 +5,6 @@ import streamlit as st
 from streamlit_echarts import JsCode, st_echarts
 
 from app_core import charts as ch
-from app_core import footer
 from app_core import ui
 from app_core.data_loader import get_newreg_data
 from app_core.nav import render_sidebar_nav
@@ -254,7 +253,6 @@ filtered_df = base_filtered_df.loc[mask].copy()
 
 if filtered_df.empty:
     st.warning("선택한 조건에 해당하는 데이터가 없습니다. 필터를 조정해 주세요.")
-    footer.render()
     st.stop()
 
 monthly_summary = summarize_monthly(filtered_df)
@@ -680,7 +678,7 @@ with right:
     st_echarts(options=detail_options, height="300px", key="newreg_brand_detail")
     st.dataframe(
         top_models.rename(columns={"CAR_MOEL_DT": "모델", "CNT": "등록대수"}).reset_index(drop=True),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -987,7 +985,7 @@ with detail_col1:
         yaxis_tickvals=list(range(1, len(sort_fields) + 1)),
         yaxis_autorange="reversed",
     )
-    st.plotly_chart(bump_fig, use_container_width=True)
+    st.plotly_chart(bump_fig, width="stretch")
 
 with detail_col2:
     brand_options = sorted(filtered_df["ORG_CAR_MAKER_KOR"].dropna().astype(str).unique().tolist())
@@ -1021,4 +1019,3 @@ with detail_col2:
     }
     st_echarts(options=model_options, height="520px", key="newreg_top20")
 
-footer.render()

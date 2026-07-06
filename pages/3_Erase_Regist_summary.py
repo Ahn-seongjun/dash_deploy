@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from app_core import data_loader as dl
-from app_core import footer
 from app_core import ui
 from app_core.nav import render_sidebar_nav
 
@@ -376,7 +375,6 @@ if selected_user_age and cols["user_age"]:
 
 if filtered_df.empty:
     st.warning("선택한 조건에 해당하는 말소 데이터가 없습니다. 필터를 조정해 주세요.")
-    footer.render()
     st.stop()
 
 monthly_summary = summarize_monthly(filtered_df)
@@ -439,31 +437,31 @@ st.markdown(
 st.subheader(":material/trending_up: 월별 말소 추이")
 trend_col, growth_col = st.columns(2, gap="large")
 with trend_col:
-    st.plotly_chart(build_monthly_trend(monthly_summary, "월별 말소대수 추이"), use_container_width=True)
+    st.plotly_chart(build_monthly_trend(monthly_summary, "월별 말소대수 추이"), width="stretch")
 with growth_col:
     if monthly_summary["mom_pct"].dropna().empty:
         st.info("증감률을 계산하려면 최소 2개월 이상의 데이터가 필요합니다.")
     else:
-        st.plotly_chart(build_growth_bar(monthly_summary, "전월 대비 증감률"), use_container_width=True)
+        st.plotly_chart(build_growth_bar(monthly_summary, "전월 대비 증감률"), width="stretch")
 
 st.subheader(":material/widgets: 구조 분석")
 row1_col1, row1_col2 = st.columns(2, gap="large")
 with row1_col1:
     if cols["fuel"]:
         fuel_df = filtered_df.groupby(cols["fuel"], as_index=False)["CNT"].sum().sort_values("CNT", ascending=False)
-        st.plotly_chart(build_donut(fuel_df, cols["fuel"], "연료별 말소 구성"), use_container_width=True)
+        st.plotly_chart(build_donut(fuel_df, cols["fuel"], "연료별 말소 구성"), width="stretch")
     else:
         st.info("연료 컬럼이 없어 연료 분포를 표시할 수 없습니다.")
 with row1_col2:
     if cols["user_age"]:
         user_age_df = filtered_df.groupby(cols["user_age"], as_index=False)["CNT"].sum().sort_values("CNT", ascending=True)
-        st.plotly_chart(build_bar(user_age_df, "CNT", cols["user_age"], "연령대별 말소대수", orientation="h"), use_container_width=True)
+        st.plotly_chart(build_bar(user_age_df, "CNT", cols["user_age"], "연령대별 말소대수", orientation="h"), width="stretch")
     else:
         st.info("연령대 컬럼이 없어 연령대 분포를 표시할 수 없습니다.")
 
 if cols["origin"]:
     origin_monthly = filtered_df.groupby(["month", cols["origin"]], as_index=False)["CNT"].sum().sort_values("month")
-    st.plotly_chart(build_stacked_monthly(origin_monthly, "month", cols["origin"], "국산/수입 월별 구조"), use_container_width=True)
+    st.plotly_chart(build_stacked_monthly(origin_monthly, "month", cols["origin"], "국산/수입 월별 구조"), width="stretch")
 else:
     st.info("국산/수입 컬럼이 없어 원산지 구조를 표시할 수 없습니다.")
 
@@ -471,13 +469,13 @@ row3_col1, row3_col2 = st.columns(2, gap="large")
 with row3_col1:
     if "VEHICLE_AGE_BAND" in filtered_df.columns and cols["fuel"]:
         heat_df = filtered_df.groupby(["VEHICLE_AGE_BAND", cols["fuel"]], as_index=False)["CNT"].sum()
-        st.plotly_chart(build_heatmap(heat_df, cols["fuel"], "VEHICLE_AGE_BAND", "사용연수 구간 x 연료 Heatmap"), use_container_width=True)
+        st.plotly_chart(build_heatmap(heat_df, cols["fuel"], "VEHICLE_AGE_BAND", "사용연수 구간 x 연료 Heatmap"), width="stretch")
     else:
         st.info("F_YEAR와 연료 컬럼이 모두 있을 때 사용연수 x 연료 구성을 볼 수 있습니다.")
 with row3_col2:
     if "VEHICLE_AGE_BAND" in filtered_df.columns:
         age_band_df = filtered_df.groupby("VEHICLE_AGE_BAND", as_index=False)["CNT"].sum().sort_values("CNT", ascending=True)
-        st.plotly_chart(build_bar(age_band_df, "CNT", "VEHICLE_AGE_BAND", "사용연수 구간별 말소대수", orientation="h"), use_container_width=True)
+        st.plotly_chart(build_bar(age_band_df, "CNT", "VEHICLE_AGE_BAND", "사용연수 구간별 말소대수", orientation="h"), width="stretch")
     else:
         st.info("F_YEAR가 있어야 사용연수 구간별 말소대수를 계산할 수 있습니다.")
 
@@ -486,7 +484,7 @@ detail_col1, detail_col2 = st.columns(2, gap="large")
 with detail_col1:
     if cols["brand"]:
         brand_df = filtered_df.groupby(cols["brand"], as_index=False)["CNT"].sum().sort_values("CNT", ascending=True).tail(15)
-        st.plotly_chart(build_bar(brand_df, "CNT", cols["brand"], "브랜드별 말소대수 Top 15", orientation="h"), use_container_width=True)
+        st.plotly_chart(build_bar(brand_df, "CNT", cols["brand"], "브랜드별 말소대수 Top 15", orientation="h"), width="stretch")
     else:
         st.info("브랜드 컬럼이 없어 브랜드별 현황을 표시할 수 없습니다.")
 with detail_col2:
@@ -500,8 +498,7 @@ with detail_col2:
             .sort_values("CNT", ascending=False)
             .head(15)
         )
-        st.plotly_chart(build_bar(model_df, cols["model"], "CNT", f"{selected_brand} 모델별 말소대수 Top 15"), use_container_width=True)
+        st.plotly_chart(build_bar(model_df, cols["model"], "CNT", f"{selected_brand} 모델별 말소대수 Top 15"), width="stretch")
     else:
         st.info("브랜드와 모델 컬럼이 모두 있어야 모델별 현황을 표시할 수 있습니다.")
 
-footer.render()

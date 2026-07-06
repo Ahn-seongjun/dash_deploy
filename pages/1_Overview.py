@@ -8,7 +8,6 @@ from plotly.subplots import make_subplots
 
 from app_core import charts as od
 from app_core import data_loader as dl
-from app_core import footer
 from app_core import ui
 from app_core.nav import render_sidebar_nav
 
@@ -297,14 +296,14 @@ def render_top_tables(df: pd.DataFrame, title_prefix: str) -> None:
         local_df = df[df["CL_HMMD_IMP_SE_NM"] == "국산"][columns].copy()
         local_df = local_df.rename(columns=rename_map).set_index("순위")
         local_df["대수"] = local_df["대수"].map("{:,}".format)
-        st.dataframe(local_df, use_container_width=True)
+        st.dataframe(local_df, width="stretch")
 
     with right:
         st.subheader(f"수입 {title_prefix} TOP 10")
         import_df = df[df["CL_HMMD_IMP_SE_NM"] == "수입"][columns].copy()
         import_df = import_df.rename(columns=rename_map).set_index("순위")
         import_df["대수"] = import_df["대수"].map("{:,}".format)
-        st.dataframe(import_df, use_container_width=True)
+        st.dataframe(import_df, width="stretch")
 
 
 def render_kind_tab(
@@ -322,7 +321,7 @@ def render_kind_tab(
     st.subheader(f"{meta['label']} 추이 및 연간 비교")
     st.caption(meta["help"])
     trend_fig = build_trend_figure(monthly_summary_df, title=f"{meta['label']} 월별 추이")
-    st.plotly_chart(trend_fig, use_container_width=True)
+    st.plotly_chart(trend_fig, width="stretch")
 
     st.subheader(f"{meta['label']} 구조 탐색")
     st.caption("브랜드/모델, 차급, 차형, 연료 기준으로 등록 구조를 확인할 수 있습니다.")
@@ -353,7 +352,7 @@ def render_kind_tab(
         tree_col2,
         title=f"{meta['label']} 트리맵",
     )
-    st.plotly_chart(treemap_fig, use_container_width=True, key=f"{key_prefix}_treemap")
+    st.plotly_chart(treemap_fig, width="stretch", key=f"{key_prefix}_treemap")
 
     segment_choice = st.selectbox("하단 구분", SEGMENT_OPTIONS, key=f"{key_prefix}_segment_choice")
     segment_col, segment_order = SEGMENT_DICT[segment_choice]
@@ -370,7 +369,7 @@ def render_kind_tab(
             title=f"{latest_year}-{str(latest_month).zfill(2)} {segment_choice}별 점유율",
             category_order=segment_order,
         )
-        st.plotly_chart(donut_fig, use_container_width=True, key=f"{key_prefix}_donut")
+        st.plotly_chart(donut_fig, width="stretch", key=f"{key_prefix}_donut")
     with area_col:
         area_fig = build_area_figure(
             segment_df,
@@ -378,7 +377,7 @@ def render_kind_tab(
             title=f"{latest_year}년 {segment_choice}별 누적 흐름",
             category_order=segment_order,
         )
-        st.plotly_chart(area_fig, use_container_width=True, key=f"{key_prefix}_area")
+        st.plotly_chart(area_fig, width="stretch", key=f"{key_prefix}_area")
 
 
 inject_page_style()
@@ -516,7 +515,6 @@ fig_yoy = build_change_bar_figure(
     direction=top_bottom_choice,
 )
 
-st.plotly_chart(fig_mom, use_container_width=True)
-st.plotly_chart(fig_yoy, use_container_width=True)
+st.plotly_chart(fig_mom, width="stretch")
+st.plotly_chart(fig_yoy, width="stretch")
 
-footer.render()

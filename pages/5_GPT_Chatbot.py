@@ -45,7 +45,7 @@ if q := st.chat_input("무엇이 궁금하세요?"):
             include=("누적 상세", "신규(세그)")   # 원하면 모든 세그로 확장 가능
         )
         st.chat_message("assistant", avatar="📙").write("차종 스펙 정보")
-        st.dataframe(spec_df, use_container_width=True)
+        st.dataframe(spec_df, width="stretch")
         st.session_state["messages"].append({"role":"assistant","content":"차종 스펙 정보를 표시했습니다."})
         raise st.stop()
 
@@ -58,12 +58,12 @@ if q := st.chat_input("무엇이 궁금하세요?"):
         df_out, meta = eng.execute(frames[source], plan, colmaps[source], source)
 
         st.subheader("📊 집계 결과")
-        st.dataframe(df_out, use_container_width=True)
+        st.dataframe(df_out, width="stretch")
         fig = eng.make_chart(df_out)
         if fig is None and not df_out.empty:
             st.metric("합계(대수)", f"{int(df_out.iloc[0]['대수']):,}")
         elif fig is not None:
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         if openai_api_key:
             answer = eng.llm_explain(plan, df_out, q, openai_api_key)

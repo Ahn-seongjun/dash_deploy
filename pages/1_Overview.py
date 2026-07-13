@@ -404,8 +404,8 @@ latest_year, latest_month, latest_new, prev_new = latest_values(mon_new)
 _, _, latest_used, prev_used = latest_values(mon_used)
 _, _, latest_er, prev_er = latest_values(mon_er)
 
-operating_total = 26643463
-operating_prev = 26633482
+operating_total = 26676359
+operating_prev = 26643463
 hero_text = f"{latest_year}년 {latest_month}월 기준 자동차 등록 월간 흐름"
 
 with st.sidebar:

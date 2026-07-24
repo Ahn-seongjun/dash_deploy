@@ -119,14 +119,22 @@ if uploaded_file:
 
     st.markdown("### 분석 대상 컬럼 선택")
     with st.form(key="my_form"):
-        for i, col in enumerate(df.columns):
-            if df[col].dtype == 'object' and df[col].nunique() == 2:
-                col_default = i
-        ab = st.selectbox("A/B column", options= df.columns, help="그룹 컬럼 선택(그룹 컬럼의 고유값은 2입니다.)",index = col_default)
+        ab_candidate_indices = [
+            i for i, col in enumerate(df.columns) if df[col].nunique(dropna=True) == 2
+        ]
+        if not ab_candidate_indices:
+            st.warning("A/B 테스트를 위해 고유값이 2개인 그룹 컬럼이 필요합니다.")
+            st.stop()
+        ab = st.selectbox(
+            "A/B column",
+            options=[df.columns[i] for i in ab_candidate_indices],
+            help="그룹 컬럼 선택(그룹 컬럼의 고유값은 2입니다.)",
+        )
 
         if ab:
-            control = df[ab].unique()[0]
-            treatment = df[ab].unique()[1]
+            groups = df[ab].dropna().unique()
+            control = groups[0]
+            treatment = groups[1]
             decide = st.radio(
                 f" **{treatment}**가 Group B(처리집단) 인가요?",
                 options=["Yes", "No"],
@@ -136,7 +144,7 @@ if uploaded_file:
                 control, treatment = treatment, control
             visitors_a = df[ab].value_counts()[control]
             visitors_b = df[ab].value_counts()[treatment]
-        bool_col_indices = [i for i, dtype in enumerate(df.dtypes) if dtype == bool]
+        bool_col_indices = [i for i, dtype in enumerate(df.dtypes) if pd.api.types.is_bool_dtype(dtype)]
         #result = st.selectbox("Result column", options=df.columns, help = "결과 컬럼 선택(결과 컬럼의 형태는 Boolean이어야 함.)",index=bool_col_indices[0])
         if not bool_col_indices:
             st.warning("Boolean형 결과 컬럼이 필요합니다.")

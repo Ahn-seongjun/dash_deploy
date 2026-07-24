@@ -262,6 +262,6 @@ if uploaded_file:
             metrics.style.format(
                 formatter={("p-value", "z-score"): "{:.3g}", ("uplift"): "{:.3g}%"}
             )
-            .applymap(style_negative, props="color:red;")
+            .map(style_negative, props="color:red;")
             .apply(style_p_value, props="color:red;", axis=1, subset=["p-value"])
         )

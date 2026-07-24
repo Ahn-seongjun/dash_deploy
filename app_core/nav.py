@@ -9,6 +9,7 @@ def render_sidebar_nav():
         st.subheader("HOME")
         st.page_link("pages/1_Overview.py", label="Overview", icon="📊")
         st.page_link("pages/2_New_Regist_summary.py", label="New Regist summary", icon="🚗")
+        st.page_link("pages/4_Used_Regist_summary.py", label="Used Regist summary", icon="🔄")
         st.page_link("pages/3_Erase_Regist_summary.py", label="Erase Regist summary", icon="🗑️")
 
         st.subheader("Contents")

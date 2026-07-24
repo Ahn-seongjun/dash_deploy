@@ -163,6 +163,13 @@ def _load_erase_detail_mart(base: Path) -> pd.DataFrame | None:
     return _normalize_raw_frame(load_parquet(path))
 
 
+def _load_usedreg_from_marts(base: Path) -> dict[str, pd.DataFrame] | None:
+    detail = _load_used_detail_mart(base)
+    if detail is None:
+        return None
+    return {"dim": detail}
+
+
 def _load_car_use_mart(base: Path) -> pd.DataFrame:
     mart_path = _marts_dir(base) / "car_use_yearly_summary.parquet"
     root_path = base / "car_use_yearly_summary.parquet"
@@ -356,3 +363,23 @@ def get_ersr_data(base_dir: Optional[str] = "data") -> Dict[str, pd.DataFrame]:
 
     df = load_csv(base / "2025년말소데이터.csv")
     return {"monthly": _normalize_raw_frame(df)}
+
+
+def get_usedreg_data(base_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
+    """Return used-registration data using the parquet loader's mtime-aware cache.
+
+    This wrapper is intentionally not cached: the used-detail mart schema can change
+    when new dimensional columns are added, and ``load_parquet`` already caches each
+    file using its modification time.
+    """
+    base = Path(base_dir) if base_dir else Path("./data")
+
+    mart_data = _load_usedreg_from_marts(base)
+    if mart_data is not None:
+        return mart_data
+
+    parquet_path = base / "usedreg_2025_2026.parquet"
+    if parquet_path.exists():
+        return {"dim": _normalize_raw_frame(load_parquet(parquet_path))}
+
+    raise FileNotFoundError("[data_loader] used registration detail data was not found")

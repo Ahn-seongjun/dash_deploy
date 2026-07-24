@@ -65,6 +65,7 @@ def build_used_detail() -> None:
         "CL_HMMD_IMP_SE_NM",
         "ORG_CAR_MAKER_KOR",
         "CAR_MOEL_DT",
+        "CAR_MODEL_KOR",
         "CAR_BT",
         "CAR_SZ",
         "USE_FUEL_NM",
@@ -73,7 +74,7 @@ def build_used_detail() -> None:
     grouped = (
         df.groupby(cols, as_index=False, dropna=False)["CNT"]
         .sum()
-        .sort_values(["EXTRACT_DE", "ORG_CAR_MAKER_KOR", "CAR_MOEL_DT"])
+        .sort_values(["EXTRACT_DE", "ORG_CAR_MAKER_KOR", "CAR_MOEL_DT", "CAR_MODEL_KOR"])
         .reset_index(drop=True)
     )
     write_parquet(grouped, "used_detail.parquet")

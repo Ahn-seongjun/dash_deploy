@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pandas as pd
 
-RAW_BASE = Path(r"C:\Users\clmns\PycharmProjects\pythonProject1\streamlit_git\dash_deploy_data\rawdata")
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).parent.parent
+RAW_BASE = PROJECT_ROOT.parent / "dash_deploy_data" / "rawdata"
 OUT_BASE = PROJECT_ROOT / "data" / "marts"
 
 
